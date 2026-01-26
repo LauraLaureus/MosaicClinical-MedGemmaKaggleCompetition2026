@@ -1,0 +1,6 @@
+transformers==4.57.6
+pillow
+torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+accelerate 
+pillow 
+requests
