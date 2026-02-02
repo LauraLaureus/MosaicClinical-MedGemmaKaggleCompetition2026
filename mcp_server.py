@@ -9,19 +9,25 @@ BASE_DIR = "./pacientes_data"
 os.makedirs(BASE_DIR, exist_ok=True)
 
 @mcp.tool()
-def list_medical_files() -> list:
+async def list_medical_files() -> list:
     """Lista todos los documentos en la carpeta de datos médicos."""
-    return os.listdir(BASE_DIR)
+    try:
+        if not os.path.exists(BASE_DIR):
+            return [f"Error: La carpeta {BASE_DIR} no existe."]
+        files = os.listdir(BASE_DIR)
+        return files if files else ["La carpeta está vacía."]
+    except Exception as e:
+        return [f"Error al leer la carpeta: {str(e)}"]
 
 @mcp.tool()
-def read_medical_report(filename: str) -> str:
+async def read_medical_report(filename: str) -> str:
     """Lee el contenido de un informe médico específico."""
     path = os.path.join(BASE_DIR, filename)
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
 @mcp.tool()
-def save_analysis(filename: str, content: str):
+async def save_analysis(filename: str, content: str):
     """Guarda el análisis final o formulario en un fichero nuevo."""
     path = os.path.join(BASE_DIR, filename)
     with open(path, "w", encoding="utf-8") as f:
@@ -29,7 +35,7 @@ def save_analysis(filename: str, content: str):
     return f"Fichero {filename} guardado con éxito."
 
 @mcp.tool()
-def ask_medgemma_to_fill_form(report_text: str, image_path: str = None) -> str:
+async def ask_medgemma_to_fill_form(report_text: str, image_path: str = None) -> str:
     """
     Envía la información a MedGemma para rellenar un formulario clínico.
     Nota: Esta función actúa como puente hacia tu servidor de LM Studio.
