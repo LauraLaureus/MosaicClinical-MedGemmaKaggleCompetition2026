@@ -1,47 +1,66 @@
 from mcp.server.fastmcp import FastMCP
 import os
+import httpx
 
 # Creamos el servidor MCP
 mcp = FastMCP("MedicalFileManager")
 
-# Carpeta de trabajo para los registros médicos
-BASE_DIR = "./pacientes_data"
-os.makedirs(BASE_DIR, exist_ok=True)
 
 @mcp.tool()
-async def list_medical_files() -> list:
-    """Lista todos los documentos en la carpeta de datos médicos."""
+async def list_medical_files(folder_path: str) -> list:
+    """List all the files in the provided folder_path"""
+    return os.listdir(folder_path)
+
+@mcp.tool()
+async def read_file(filepath: str) -> str:
+    """Read the content of the file specified in the filepath."""
+    if not os.path.exists(filepath):
+        return f"Error: The file at {filepath} does not exist."
     try:
-        if not os.path.exists(BASE_DIR):
-            return [f"Error: La carpeta {BASE_DIR} no existe."]
-        files = os.listdir(BASE_DIR)
-        return files if files else ["La carpeta está vacía."]
+        with open(filepath, "r", encoding="utf-8") as f:
+            return f.read()
     except Exception as e:
-        return [f"Error al leer la carpeta: {str(e)}"]
+        return f"Error reading file: {str(e)}"
 
 @mcp.tool()
-async def read_medical_report(filename: str) -> str:
-    """Lee el contenido de un informe médico específico."""
-    path = os.path.join(BASE_DIR, filename)
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
-
-@mcp.tool()
-async def save_analysis(filename: str, content: str):
-    """Guarda el análisis final o formulario en un fichero nuevo."""
-    path = os.path.join(BASE_DIR, filename)
-    with open(path, "w", encoding="utf-8") as f:
+async def write_file(filepath: str, content: str) -> str:
+    """Create or override the content of the provided filepath"""
+    with open(filepath, "w", encoding="utf-8") as f:
         f.write(content)
-    return f"Fichero {filename} guardado con éxito."
+    return f"Archivo {filepath} guardado con éxito."
 
 @mcp.tool()
-async def ask_medgemma_to_fill_form(report_text: str, image_path: str = None) -> str:
+async def append_to_file(filepath: str, content: str) -> str:
+    """Append content at the end of the provided filepath"""
+    with open(filepath, "a", encoding="utf-8") as f:
+        f.write("\n" + content)
+    return f"Contenido añadido a {filepath}."
+
+@mcp.tool()
+async def call_medgemma_expert(system_prompt: str, file_content: str) -> str:
     """
-    Envía la información a MedGemma para rellenar un formulario clínico.
-    Nota: Esta función actúa como puente hacia tu servidor de LM Studio.
+    Send the content of a text file to MedGemma along with the system_prompt to perform an action. 
     """
-    # Aquí iría la llamada a la API local de LM Studio que configuraremos después
-    return f"SIMULACIÓN: MedGemma analizando el reporte: {report_text[:30]}..."
+    url = "http://localhost:1234/v1/chat/completions"
+    
+    payload = {
+        "model": "medgemma-1.5-4b-it", # Verifica el ID exacto en tu LM Studio
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"File content:\n\n{file_content}"}
+        ],
+        "temperature": 0.1 # Baja temperatura para mayor precisión médica
+    }
+    
+    # Timeout largo porque JIT puede tardar en cargar el modelo
+    async with httpx.AsyncClient(timeout=600.0) as client:
+        try:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            data = response.json()
+            return data['choices'][0]['message']['content']
+        except Exception as e:
+            return f"Error llamando a MedGemma: {str(e)}"
 
 if __name__ == "__main__":
     mcp.run()
