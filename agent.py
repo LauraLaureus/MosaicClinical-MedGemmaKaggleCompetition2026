@@ -9,6 +9,7 @@ import os
 import sys
 import re
 import anyio
+import time
 
 torch.set_num_threads(min(4, os.cpu_count()))
 device = "cpu"
@@ -24,26 +25,23 @@ model = AutoModelForCausalLM.from_pretrained(
     attn_implementation="sdpa" if sys.platform != "win32" else "eager"
 )
 
-# 2. Configuración del Servidor MCP (Manos)
 server_params = StdioServerParameters(
     command=sys.executable,
     args=["mcp_server.py"], 
 )
 
+
 async def run_agent():
     with open("mcp_debug.log", 'w') as fnull:
         async with stdio_client(server_params, errlog=fnull) as (read, write):
             async with ClientSession(read, write) as session:
-                session.default_timeout = 300 # 5 minutos
+                session.default_timeout = 300 # 5 minutes
                 # Inicializar conexión con el servidor MCP
                 await session.initialize()
                 
-                # Listar herramientas disponibles en el servidor
+                # List MCP tools
                 tools = await session.list_tools()
-                print(f"Detected tools: {[t.name for t in tools.tools]}", flush=True)
-
                 tools_description = []
-
                 for t in tools.tools:
                     # t.inputSchema contiene el JSON Schema de los argumentos
                     schema_info = json.dumps(t.inputSchema.get("properties", {}), indent=2)
@@ -51,24 +49,38 @@ async def run_agent():
 
                 tools_formatted_list = "\n".join(tools_description)
 
-                SYSTEM_PROMPT = f"""You are a medical assistant. You have access to the following tools {tools_formatted_list}
 
-Attend to the user's request and make a plan. You will execute one step at the time. 
+                summary_template = ""
+                with open("./data/summary_template.txt","r",encoding="utf-8") as f:
+                    summary_template = f.read()
+
+                patient_folder = "./data/Master First"
+
+                SYSTEM_PROMPT = f"""You are a helpful medical assistant.
+
+To help you with this task you have access to the following tools which will DO grant you access to the file system:\n{tools_formatted_list}
+Remind that medgemma is a medical model that can help you with medical functions. 
+
 When you need to use a tool, provide a tool request.
 Tool Request are in the following format "<tool_call>{{"name": "tool_name", "arguments": {{}} }}</tool_call>"
 The tool request should be the last thing in the message. 
 Use one tool at the time. 
+
+Attend to the user's request and make a plan.
+Write the plan as a checkboxes list for example [ ] - <STEP Number> - Task
+As first step ALWAYS write the plan into './to-do.txt' file.
+
 """ 
 
                 messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": "List the files and print the list."}
+                {"role": "user", "content": f"Fill the MODEL CLINICAL HISTORY SUMMARY with the information of the patient that is available in '{patient_folder}'\n{summary_template}"}
             ]
 
 
-                for step in range(3):
+                for step in range(1):
                     
-                    print(f"\n--- Pensando (Paso {step+1}) ---", flush=True)
+                    # print(f"\n--- Thinking (Paso {step+1}) ---", flush=True)
 
                     # --- Bucle de Razonamiento del Agente ---
 
@@ -79,16 +91,29 @@ Use one tool at the time.
                     )
 
                     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+                    
+                    start_time = time.perf_counter()
                     with torch.no_grad():
                         outputs = model.generate(**inputs,
-                                                max_new_tokens=512,
+                                                max_new_tokens=1024,
                                                 temperature=0.01,
                                                 do_sample=False,
                                                 repetition_penalty=1.1,
                                                 pad_token_id=tokenizer.eos_token_id,
                                                 eos_token_id=tokenizer.eos_token_id
                                                 )
+                        
+                    end_time = time.perf_counter()
+                    duration = end_time - start_time
+
                     full_generation = tokenizer.decode(outputs[0][inputs.input_ids.shape[-1]:], skip_special_tokens=True)
+                    new_tokens_count = len(outputs[0]) - inputs.input_ids.shape[-1]
+                    tokens_per_sec = new_tokens_count / duration if duration > 0 else 0
+
+                    print(f"\n⏱️  Generation time: {duration:.2f} s")
+                    print(f"🚀 Speed: {tokens_per_sec:.2f} t/s")
+                    print(f"📊 Number of generated tokens: {new_tokens_count}")
+
 
                     print(f"\nSmolLM3 generated: {full_generation}", flush=True)
 
@@ -106,7 +131,7 @@ Use one tool at the time.
 
                     if match:
 
-                        torch.set_num_threads(1) 
+                        # torch.set_num_threads(1) 
 
                         tool_data = json.loads(match.group(1))
                         tool_name = tool_data["name"]
@@ -116,11 +141,7 @@ Use one tool at the time.
                         
                         try:
                             print(f"⚙️ Enviando petición a la herramienta: {tool_name}...", flush=True)
-                            # Algunos servidores necesitan un pequeño respiro si la CPU está al 100%
-                            await asyncio.sleep(0.5) 
-                            
                             result = await session.call_tool(tool_name, arguments=tool_args)
-                            torch.set_num_threads(4)
                             print("✅ Respuesta recibida del servidor.", flush=True)
                         except anyio.ClosedResourceError:
                             print("❌ ERROR: El servidor MCP se cerró inesperadamente.")
@@ -142,5 +163,4 @@ if __name__ == "__main__":
     asyncio.run(run_agent())
 
     # await run_agent()
-
 
