@@ -15,7 +15,8 @@ torch.set_num_threads(min(4, os.cpu_count()))
 device = "cpu"
 
 # 1. Configuración del Modelo (Cerebro)
-model_id = "HuggingFaceTB/SmolLM3-3B"
+# model_id = "HuggingFaceTB/SmolLM3-3B"
+model_id = "Qwen/Qwen3-0.6B"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = AutoModelForCausalLM.from_pretrained(
     model_id, 
