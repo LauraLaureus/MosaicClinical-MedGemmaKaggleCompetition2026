@@ -1,5 +1,6 @@
 # %%
 import asyncio
+from typing import Optional
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -31,6 +32,76 @@ server_params = StdioServerParameters(
     args=["mcp_server.py"], 
 )
 
+def agent_generation(messages: list[dict]) -> tuple[Optional[str],Optional[str]]:
+    """
+    Ask the agent model to generate
+    
+    :param messages: list of all messages to send to the agent brain in OpenAI format. 
+    :type messages: list[Dict]
+    :return: think channel(string), output channel(string)
+    :rtype: string
+    """
+    prompt = tokenizer.apply_chat_template(
+        messages, 
+        tokenize=False, 
+        add_generation_prompt=True
+    )
+
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    
+    start_time = time.perf_counter()
+    with torch.no_grad():
+        outputs = model.generate(**inputs,
+                                max_new_tokens=1024,
+                                temperature=0.01,
+                                do_sample=False,
+                                repetition_penalty=1.1,
+                                pad_token_id=tokenizer.eos_token_id,
+                                eos_token_id=tokenizer.eos_token_id
+                                )
+        
+    end_time = time.perf_counter()
+    duration = end_time - start_time
+
+    full_generation = tokenizer.decode(outputs[0][inputs.input_ids.shape[-1]:], skip_special_tokens=True)
+    new_tokens_count = len(outputs[0]) - inputs.input_ids.shape[-1]
+    tokens_per_sec = new_tokens_count / duration if duration > 0 else 0
+
+    print(f"\n⏱️  Generation time: {duration:.2f} s")
+    print(f"🚀 Speed: {tokens_per_sec:.2f} t/s")
+    print(f"📊 Number of generated tokens: {new_tokens_count}")
+
+
+    print(f"\nBrain generated: {full_generation}", flush=True)
+
+
+    think_channel = None
+    response_channel = None
+
+    if "</think>" in full_generation:
+        channels = full_generation.split("</think>")
+        think_channel = channels[0].replace("<think>","")
+        response_channel = channels[-1]
+
+    else:
+        response_channel = full_generation
+
+    return think_channel, response_channel
+
+def parse_tool_call(response_channel:str) -> tuple[Optional[str], Optional[dict]]:
+    
+    match = re.search(r"<tool_call>(.*?)</tool_call>", response_channel, re.DOTALL)
+
+    if match:
+        tool_data = json.loads(match.group(1))
+        tool_name = tool_data["name"]
+        tool_args = tool_data.get("arguments", {})
+
+
+    return (tool_name if match else None,
+            tool_args if match else None)
+        
+        
 
 async def run_agent():
     with open("mcp_debug.log", 'w') as fnull:
@@ -40,6 +111,9 @@ async def run_agent():
                 # Inicializar conexión con el servidor MCP
                 await session.initialize()
                 
+                
+
+
                 # List MCP tools
                 tools = await session.list_tools()
                 tools_description = []
@@ -51,112 +125,77 @@ async def run_agent():
                 tools_formatted_list = "\n".join(tools_description)
 
 
+                async def call_tool(tool_name, tool_args):
+                    try:
+                        print(f"⚙️ Enviando petición a la herramienta: {tool_name}...", flush=True)
+                        result = await session.call_tool(tool_name, arguments=tool_args)
+                        print("✅ Respuesta recibida del servidor.", flush=True)
+
+                        return result
+                    except anyio.ClosedResourceError as e :
+                        print("❌ ERROR: El servidor MCP se cerró inesperadamente.")
+                        # Mira el log para saber por qué
+                        # if os.path.exists("mcp_debug.log"):
+                        #     with open("mcp_debug.log", "r") as f:
+                        #         print(f"LOG DEL SERVIDOR: {f.read()}")
+
+                        fnull.write(str(e))
+
+
                 summary_template = ""
                 with open("./data/summary_template.txt","r",encoding="utf-8") as f:
                     summary_template = f.read()
 
                 patient_folder = "./data/Master First"
 
-                SYSTEM_PROMPT = f"""You are a helpful medical assistant.
+                SYSTEM_PROMPT = f"""
+You are a medical agent with tools to access file system.
 
-To help you with this task you have access to the following tools which will DO grant you access to the file system:\n{tools_formatted_list}
-Remind that medgemma is a medical model that can help you with medical functions. 
+TASK:
+The user needs to fill the MODEL CLINICAL HISTORY SUMMARY form with medical data. 
+The medical data is available in the patient folder.
+The user will provide the patient's folder.
+You can use the following tools to access the filesystem:
+{tools_formatted_list}
 
-When you need to use a tool, provide a tool request.
-Tool Request are in the following format "<tool_call>{{"name": "tool_name", "arguments": {{}} }}</tool_call>"
-The tool request should be the last thing in the message. 
-Use one tool at the time. 
 
-Attend to the user's request and make a plan.
-Write the plan as a checkboxes list for example [ ] - <STEP Number> - Task
-As first step ALWAYS write the plan into './to-do.txt' file.
+Prepare a plan following the following format. 
 
+PLAN FORMAT:
+[ ] - <step number> - <list idea> 
+[ ] - 1 - List files in ./data/<patient_name>
+[ ] - 2 - Read patient_report.txt
+[ ] - 3 - Use MedGemma to fill summary
+[ ] - 4 - Save final result to summary.txt
+
+{summary_template}
+
+Your current task is writting the plan using the PLAN FORMAT, without introductions or explanations. 
+Write only the tasks you are 100% sure you can complete right now. You will be able to update the plan later. 
 """ 
+                print(f"System prompt: {SYSTEM_PROMPT}")
 
                 messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"Fill the MODEL CLINICAL HISTORY SUMMARY with the information of the patient that is available in '{patient_folder}'\n{summary_template}"}
+                {"role": "user", "content": f"Patient folder'{patient_folder}'"}
             ]
 
+                think_channel, output_channel = agent_generation(messages)
 
-                for step in range(1):
+                result = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel})
+
+                
+
+                
+            
+                # # Añadimos el resultado al historial para que el modelo lo vea
+                # messages.append({"role": "assistant", "content": output_channel})
+                # messages.append({"role": "user", "content": f"Tool result: {result.content}"})
+
                     
-                    # print(f"\n--- Thinking (Paso {step+1}) ---", flush=True)
 
-                    # --- Bucle de Razonamiento del Agente ---
 
-                    prompt = tokenizer.apply_chat_template(
-                        messages, 
-                        tokenize=False, 
-                        add_generation_prompt=True
-                    )
-
-                    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
                     
-                    start_time = time.perf_counter()
-                    with torch.no_grad():
-                        outputs = model.generate(**inputs,
-                                                max_new_tokens=1024,
-                                                temperature=0.01,
-                                                do_sample=False,
-                                                repetition_penalty=1.1,
-                                                pad_token_id=tokenizer.eos_token_id,
-                                                eos_token_id=tokenizer.eos_token_id
-                                                )
-                        
-                    end_time = time.perf_counter()
-                    duration = end_time - start_time
-
-                    full_generation = tokenizer.decode(outputs[0][inputs.input_ids.shape[-1]:], skip_special_tokens=True)
-                    new_tokens_count = len(outputs[0]) - inputs.input_ids.shape[-1]
-                    tokens_per_sec = new_tokens_count / duration if duration > 0 else 0
-
-                    print(f"\n⏱️  Generation time: {duration:.2f} s")
-                    print(f"🚀 Speed: {tokens_per_sec:.2f} t/s")
-                    print(f"📊 Number of generated tokens: {new_tokens_count}")
-
-
-                    print(f"\nSmolLM3 generated: {full_generation}", flush=True)
-
-
-                    if "</think>" in full_generation:
-                        channels = full_generation.split("</think>")
-                        think_channel = channels[0].replace("<think>","")
-                        response_channel = channels[-1]
-
-                    else:
-                        response_channel = full_generation
-
-
-                    match = re.search(r"<tool_call>(.*?)</tool_call>", response_channel, re.DOTALL)
-
-                    if match:
-
-                        # torch.set_num_threads(1) 
-
-                        tool_data = json.loads(match.group(1))
-                        tool_name = tool_data["name"]
-                        tool_args = tool_data.get("arguments", {})
-
-                        print(f"--- Ejecutando herramienta: {tool_name} ---")
-                        
-                        try:
-                            print(f"⚙️ Enviando petición a la herramienta: {tool_name}...", flush=True)
-                            result = await session.call_tool(tool_name, arguments=tool_args)
-                            print("✅ Respuesta recibida del servidor.", flush=True)
-                        except anyio.ClosedResourceError:
-                            print("❌ ERROR: El servidor MCP se cerró inesperadamente.")
-                            # Mira el log para saber por qué
-                            if os.path.exists("mcp_debug.log"):
-                                with open("mcp_debug.log", "r") as f:
-                                    print(f"LOG DEL SERVIDOR: {f.read()}")
-                            break
-                        
-                        # Añadimos el resultado al historial para que el modelo lo vea
-                        messages.append({"role": "assistant", "content": full_generation})
-                        messages.append({"role": "user", "content": f"Tool result: {result.content}"})
-                    else:
-                        break
 
 
 if __name__ == "__main__":
@@ -165,3 +204,5 @@ if __name__ == "__main__":
 
     # await run_agent()
 
+
+# %%
