@@ -133,11 +133,7 @@ async def run_agent():
 
                         return result
                     except anyio.ClosedResourceError as e :
-                        print("❌ ERROR: El servidor MCP se cerró inesperadamente.")
-                        # Mira el log para saber por qué
-                        # if os.path.exists("mcp_debug.log"):
-                        #     with open("mcp_debug.log", "r") as f:
-                        #         print(f"LOG DEL SERVIDOR: {f.read()}")
+                        print("❌ ERROR: MCP server closed abruptly.")
 
                         fnull.write(str(e))
 
@@ -148,7 +144,7 @@ async def run_agent():
 
                 patient_folder = "./data/Master First"
 
-                SYSTEM_PROMPT = f"""
+                INITIAL_PLAN_SYSTEM_PROMPT = f"""
 You are a medical agent with tools to access file system.
 
 TASK:
@@ -162,29 +158,65 @@ You can use the following tools to access the filesystem:
 Prepare a plan following the following format. 
 
 PLAN FORMAT:
-[ ] - <step number> - <list idea> 
-[ ] - 1 - List files in ./data/<patient_name>
-[ ] - 2 - Read patient_report.txt
-[ ] - 3 - Use MedGemma to fill summary
-[ ] - 4 - Save final result to summary.txt
+TODO - <step number> - <list idea> 
+TODO - 1 - List files in ./data/<patient_name>
+TODO - 2 - Read patient_report.txt
+TODO - 3 - Use MedGemma to fill summary
+TODO - 4 - Save final result to summary.txt
 
 {summary_template}
 
 Your current task is writting the plan using the PLAN FORMAT, without introductions or explanations. 
 Write only the tasks you are 100% sure you can complete right now. You will be able to update the plan later. 
 """ 
-                print(f"System prompt: {SYSTEM_PROMPT}")
+                print(f"System prompt: {INITIAL_PLAN_SYSTEM_PROMPT}")
 
                 messages = [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": INITIAL_PLAN_SYSTEM_PROMPT},
                 {"role": "user", "content": f"Patient folder'{patient_folder}'"}
             ]
 
                 think_channel, output_channel = agent_generation(messages)
+                output_channel = output_channel.strip()
 
-                result = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel})
+                blackboard = {"planning_step": patient_folder,
+                              "summary_template_filepath": "./data/summary_template.txt"}
 
-                
+
+                _ = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel.strip()})
+                _ = await call_tool("write_file",{"filepath":"./blackboard.txt", "content":json.dumps(blackboard)})
+
+### region execute plan loop
+                CURRENT_STEP_EXECUTION_SYSTEM_PROMPT = f"""You are a helpful agent that can use the following tools:
+### TOOLS
+{tools_formatted_list}
+
+### CURRENT PLAN
+{output_channel}
+
+### CURRENT DATA
+{json.dumps(blackboard)}
+"""
+                CURRENT_STEP_USER_PROMPT ="""
+To execute the next step provide:
+- "FINISH" string if all the steps in the current plan have the 'DONE' prefix.
+- A tool call request in the format <tool_call>{{"name": "tool_name", "arguments": {{"arg_name": "value"}} }}</tool_call>
+                """
+
+                messages = [
+                    {"role":"system", "content":CURRENT_STEP_EXECUTION_SYSTEM_PROMPT},
+                    {"role":"user", "content":CURRENT_STEP_USER_PROMPT}
+                    ]
+                think_channel, output_channel = agent_generation(messages)
+                print(f"AGENT Think channel: {think_channel}")
+                print("-"*50)
+                print(f"AGENT GENERATION: {output_channel}")
+                if "FINISH" not in output_channel.upper():
+                    tool_name, tool_args = parse_tool_call(output_channel)
+
+                    if tool_name:
+                        tool_results = call_tool(tool_name=tool_name, tool_args=tool_args)
+                        blackboard["tool_result"] = tool_results
 
                 
             
