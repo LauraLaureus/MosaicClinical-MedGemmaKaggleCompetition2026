@@ -258,7 +258,46 @@ RULES:
 
                     print(f"blackboard: {json.dumps(blackboard)}")
 
-                    
+                    done_step = next_step.replace("TODO","DONE")
+                    current_plan = current_plan.replace(next_step,done_step)
+
+                    UPDATE_PLAN_SYSTEM_PROMPT = f"""You are a Medical Plan Supervisor. 
+### AVAILABLE TOOLS
+{tools_formatted_list}
+
+### BLACKBOARD DATA
+{json.dumps(blackboard)}
+
+### TEMPLATE
+{summary_template}
+
+### PLAN
+{current_plan}
+"""
+                    UPDATE_PLAN_USER_PROMPT = f"""
+### TASK
+Your job is to provide a new plan based on the already done tasks, the data in the BLACKBOARD DATA, the AVAILABLE TOOLS to fullfill the TEMPLATE.
+
+### PLAN RULES
+- Keep DONE steps exactly as they are. They are your historical record.
+- DISCARD all current TODO steps; they are obsolete.
+- CREATE a fresh list of TODO steps based ONLY on what is missing to reach the goal.
+- If the BLACKBOARD DATA contains new information (like new filenames), add specific TODO steps to handle them.
+- If the goal is reached according to the BLACKBOARD DATA, remove all TODOs and write ONLY: FINISH.
+- Write only the plan, without introductions or explanations. 
+- Write the plan step in the format "TODO - <step number> - <task description>"
+- Write one step per line. 
+"""
+                    messages = [    
+                        {"role":"system", "content":UPDATE_PLAN_SYSTEM_PROMPT},
+                        {"role":"user", "content":UPDATE_PLAN_USER_PROMPT}
+                    ]
+
+                    think_channel, output_channel = agent_generation(messages)
+                    print(f"AGENT Think channel: {think_channel}")
+                    print("-"*50)
+                    print(f"AGENT GENERATION: {output_channel}")
+                    output_channel = output_channel.strip()
 
 
                     
@@ -267,5 +306,3 @@ RULES:
 if __name__ == "__main__":
 
     asyncio.run(run_agent())
-
-    # await run_agent()
