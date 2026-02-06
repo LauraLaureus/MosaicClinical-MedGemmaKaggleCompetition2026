@@ -86,22 +86,50 @@ def agent_generation(messages: list[dict]) -> tuple[Optional[str],Optional[str]]
     else:
         response_channel = full_generation
 
-    return think_channel, response_channel
+    return think_channel, response_channel.strip()
 
-def parse_tool_call(response_channel:str) -> tuple[Optional[str], Optional[dict]]:
-    
-    match = re.search(r"<tool_call>(.*?)</tool_call>", response_channel, re.DOTALL)
+def parse_tool_call(response_channel: str) -> tuple[Optional[str], Optional[dict]]:
+    tool_name = None
+    tool_args = None
+
+    # 1. Extraer lo que hay ENTRE los tags (o desde el tag de apertura hasta el final)
+    # El regex busca <tool_call>, captura todo lo que sigue, y para en </tool_call> si existe
+    match = re.search(r"<tool_call>(.*?)(?:</tool_call>|$)", response_channel, re.DOTALL)
 
     if match:
-        tool_data = json.loads(match.group(1))
-        tool_name = tool_data["name"]
-        tool_args = tool_data.get("arguments", {})
+        raw_content = match.group(1).strip()
+        
+        # 2. Reparación de emergencia para la "Patata"
+        # Si el modelo cortó el JSON antes de tiempo:
+        if raw_content.count('{') > raw_content.count('}'):
+            raw_content += "}"
+        if raw_content.count('[') > raw_content.count(']'):
+            raw_content += "]"
+
+            
+            
+        raw_content = raw_content.replace("<tool_call>","")
+        raw_content = raw_content.replace("</tool_call>", "")            
 
 
-    return (tool_name if match else None,
-            tool_args if match else None)
+        try:
+            # 3. Intentar parsear el JSON limpio
+            tool_data = json.loads(raw_content)
+            tool_name = tool_data.get("name")
+            tool_args = tool_data.get("arguments", {})
+        except json.JSONDecodeError as e:
+            print(f"⚠️ Error de formato JSON: {e} en el contenido: {raw_content}")
+            # Aquí podrías intentar una limpieza manual más agresiva si fuera necesario
+    
+    return tool_name, tool_args
         
-        
+def get_next_todo_point(current_plan:str) -> str:
+
+    tasks = current_plan.splitlines()
+    for task in tasks:
+        if task.startswith("TODO"):
+            return task
+    return None
 
 async def run_agent():
     with open("mcp_debug.log", 'w') as fnull:
@@ -186,43 +214,49 @@ Write only the tasks you are 100% sure you can complete right now. You will be a
                 _ = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel.strip()})
                 _ = await call_tool("write_file",{"filepath":"./blackboard.txt", "content":json.dumps(blackboard)})
 
+                current_plan = output_channel
+
 ### region execute plan loop
                 CURRENT_STEP_EXECUTION_SYSTEM_PROMPT = f"""You are a helpful agent that can use the following tools:
 ### TOOLS
 {tools_formatted_list}
 
-### CURRENT PLAN
-{output_channel}
-
 ### CURRENT DATA
 {json.dumps(blackboard)}
 """
-                CURRENT_STEP_USER_PROMPT ="""
-To execute the next step provide:
-- "FINISH" string if all the steps in the current plan have the 'DONE' prefix.
-- A tool call request in the format <tool_call>{{"name": "tool_name", "arguments": {{"arg_name": "value"}} }}</tool_call>
-                """
+                next_step = get_next_todo_point(current_plan)
+                if next_step:
 
-                messages = [
-                    {"role":"system", "content":CURRENT_STEP_EXECUTION_SYSTEM_PROMPT},
-                    {"role":"user", "content":CURRENT_STEP_USER_PROMPT}
+                    CURRENT_STEP_USER_PROMPT =f"""
+The current step is '{next_step}'
+Provide a tool call request in the format <tool_call>{{"name": "tool_name", "arguments": {{"arg_name": "value"}} }}</tool_call>
+
+RULES:
+- ALWAYS respect the format.
+- ALWAYS start with the "<tool_call>" tag. 
+- ALWAYS provide a Valid JSON format. Check that every curly parenthesis has its closing one. Use only double quote symbol (").
+- ALWAYS end with the "</tool_call>" tag.  
+"""
+
+                    messages = [    
+                        {"role":"system", "content":CURRENT_STEP_EXECUTION_SYSTEM_PROMPT},
+                        {"role":"user", "content":CURRENT_STEP_USER_PROMPT}
                     ]
-                think_channel, output_channel = agent_generation(messages)
-                print(f"AGENT Think channel: {think_channel}")
-                print("-"*50)
-                print(f"AGENT GENERATION: {output_channel}")
-                if "FINISH" not in output_channel.upper():
-                    tool_name, tool_args = parse_tool_call(output_channel)
+                    think_channel, output_channel = agent_generation(messages)
+                    print(f"AGENT Think channel: {think_channel}")
+                    print("-"*50)
+                    print(f"AGENT GENERATION: {output_channel}")
+                    output_channel = output_channel.strip()
 
-                    if tool_name:
-                        tool_results = call_tool(tool_name=tool_name, tool_args=tool_args)
-                        blackboard["tool_result"] = tool_results
+                    if "FINISH" not in output_channel.upper():
+                        tool_name, tool_args = parse_tool_call(output_channel)
 
-                
-            
-                # # Añadimos el resultado al historial para que el modelo lo vea
-                # messages.append({"role": "assistant", "content": output_channel})
-                # messages.append({"role": "user", "content": f"Tool result: {result.content}"})
+                        if tool_name:
+                            tool_results = await call_tool(tool_name=tool_name, tool_args=tool_args)
+                            if tool_results:
+                                blackboard["tool_result"] = tool_results.content[0].text
+
+                    print(f"blackboard: {json.dumps(blackboard)}")
 
                     
 
@@ -235,6 +269,3 @@ if __name__ == "__main__":
     asyncio.run(run_agent())
 
     # await run_agent()
-
-
-# %%
