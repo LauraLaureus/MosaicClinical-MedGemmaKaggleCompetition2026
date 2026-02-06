@@ -186,11 +186,9 @@ You can use the following tools to access the filesystem:
 Prepare a plan following the following format. 
 
 PLAN FORMAT:
-TODO - <step number> - <list idea> 
-TODO - 1 - List files in ./data/<patient_name>
-TODO - 2 - Read patient_report.txt
-TODO - 3 - Use MedGemma to fill summary
-TODO - 4 - Save final result to summary.txt
+TODO  - <list idea> 
+TODO  - Use MedGemma to fill summary
+TODO  - Save final result to summary.txt
 
 {summary_template}
 
@@ -236,6 +234,7 @@ RULES:
 - ALWAYS start with the "<tool_call>" tag. 
 - ALWAYS provide a Valid JSON format. Check that every curly parenthesis has its closing one. Use only double quote symbol (").
 - ALWAYS end with the "</tool_call>" tag.  
+- ALWAYS respect the filenames in the blackboard. Copy them as they are when they are needed.
 """
 
                     messages = [    
@@ -261,6 +260,11 @@ RULES:
                     done_step = next_step.replace("TODO","DONE")
                     current_plan = current_plan.replace(next_step,done_step)
 
+                    if "already_done_steps" not in blackboard:
+                        blackboard["already_done_steps"] = ""
+
+                    blackboard["already_done_steps"] += done_step
+
                     UPDATE_PLAN_SYSTEM_PROMPT = f"""You are a Medical Plan Supervisor. 
 ### AVAILABLE TOOLS
 {tools_formatted_list}
@@ -279,13 +283,12 @@ RULES:
 Your job is to provide a new plan based on the already done tasks, the data in the BLACKBOARD DATA, the AVAILABLE TOOLS to fullfill the TEMPLATE.
 
 ### PLAN RULES
-- Keep DONE steps exactly as they are. They are your historical record.
 - DISCARD all current TODO steps; they are obsolete.
 - CREATE a fresh list of TODO steps based ONLY on what is missing to reach the goal.
 - If the BLACKBOARD DATA contains new information (like new filenames), add specific TODO steps to handle them.
 - If the goal is reached according to the BLACKBOARD DATA, remove all TODOs and write ONLY: FINISH.
 - Write only the plan, without introductions or explanations. 
-- Write the plan step in the format "TODO - <step number> - <task description>"
+- Write the plan step in the format "TODO - <task description>"
 - Write one step per line. 
 """
                     messages = [    
@@ -300,7 +303,11 @@ Your job is to provide a new plan based on the already done tasks, the data in t
                     output_channel = output_channel.strip()
 
 
-                    
+                    _ = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel.strip()})
+                    _ = await call_tool("write_file",{"filepath":"./blackboard.txt", "content":json.dumps(blackboard)})
+
+
+                    current_plan = output_channel
 
 
 if __name__ == "__main__":
