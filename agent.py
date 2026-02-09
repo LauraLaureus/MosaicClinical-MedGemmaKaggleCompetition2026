@@ -131,6 +131,8 @@ def get_next_todo_point(current_plan:str) -> str:
             return task
     return None
 
+def agent_iteration() -> tuple[str,str]
+
 async def run_agent():
     with open("mcp_debug.log", 'w') as fnull:
         async with stdio_client(server_params, errlog=fnull) as (read, write):
@@ -188,7 +190,9 @@ async def run_agent():
 
 ### region execute plan loop
 
-                UPDATE_PLAN_SYSTEM_PROMPT = f"""You are a Medical Plan Supervisor. 
+                while True:
+                    iteration_number = 1
+                    UPDATE_PLAN_SYSTEM_PROMPT = f"""You are a Medical Plan Supervisor. 
 ### AVAILABLE TOOLS
 {tools_formatted_list}
 
@@ -198,7 +202,7 @@ async def run_agent():
 ### PLAN
 {current_plan}
 """
-                UPDATE_PLAN_USER_PROMPT = f"""
+                    UPDATE_PLAN_USER_PROMPT = f"""
 ### TASK
 Your job is to list the technical steps that are still pending based on the already done tasks, the data in the BLACKBOARD DATA, the AVAILABLE TOOLS to fullfill the SUMMARY TEMPLATE.
 
@@ -214,36 +218,36 @@ FRESH TODOs: Forget old TODOs. Look at the Blackboard:
 TERMINATION: Write ONLY the word "FINISH" if and only if the final file "summary.txt" has been successfully saved to disk.
 FORMAT: Write one "TODO - <description>" per line. No intro. No chat.
 """
-                messages = [    
-                        {"role":"system", "content":UPDATE_PLAN_SYSTEM_PROMPT},
-                        {"role":"user", "content":UPDATE_PLAN_USER_PROMPT}
-                    ]
+                    messages = [    
+                            {"role":"system", "content":UPDATE_PLAN_SYSTEM_PROMPT},
+                            {"role":"user", "content":UPDATE_PLAN_USER_PROMPT}
+                        ]
 
-                think_channel, output_channel = agent_generation(messages)
-                print(f"AGENT Think channel: {think_channel}")
-                print("-"*50)
-                print(f"AGENT GENERATION: {output_channel}")
-                output_channel = output_channel.strip()
-
-
-                _ = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel.strip()})
-                _ = await call_tool("write_file",{"filepath":"./blackboard.txt", "content":json.dumps(blackboard)})
+                    think_channel, output_channel = agent_generation(messages)
+                    print(f"AGENT Think channel: {think_channel}")
+                    print("-"*50)
+                    print(f"AGENT GENERATION: {output_channel}")
+                    output_channel = output_channel.strip()
 
 
-                current_plan = output_channel
+                    _ = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel.strip()})
+                    _ = await call_tool("write_file",{"filepath":"./blackboard.txt", "content":json.dumps(blackboard)})
 
 
-                CURRENT_STEP_EXECUTION_SYSTEM_PROMPT = f"""You are a helpful agent that can use the following tools:
+                    current_plan = output_channel
+
+
+                    CURRENT_STEP_EXECUTION_SYSTEM_PROMPT = f"""You are a helpful agent that can use the following tools:
 ### TOOLS
 {tools_formatted_list}
 
 ### CURRENT DATA
 {json.dumps(blackboard)}
 """
-                next_step = get_next_todo_point(current_plan)
-                if next_step:
+                    next_step = get_next_todo_point(current_plan)
+                    if next_step:
 
-                    CURRENT_STEP_USER_PROMPT =f"""
+                        CURRENT_STEP_USER_PROMPT =f"""
 The current step is '{next_step}'
 Provide a tool call request in the format <tool_call>{{"name": "tool_name", "arguments": {{"arg_name": "value"}} }}</tool_call>
 
@@ -255,33 +259,35 @@ RULES:
 - ALWAYS respect the filenames in the blackboard. Copy them as they are when they are needed.
 """
 
-                    messages = [    
-                        {"role":"system", "content":CURRENT_STEP_EXECUTION_SYSTEM_PROMPT},
-                        {"role":"user", "content":CURRENT_STEP_USER_PROMPT}
-                    ]
-                    think_channel, output_channel = agent_generation(messages)
-                    print(f"AGENT Think channel: {think_channel}")
-                    print("-"*50)
-                    print(f"AGENT GENERATION: {output_channel}")
-                    output_channel = output_channel.strip()
+                        messages = [    
+                            {"role":"system", "content":CURRENT_STEP_EXECUTION_SYSTEM_PROMPT},
+                            {"role":"user", "content":CURRENT_STEP_USER_PROMPT}
+                        ]
+                        think_channel, output_channel = agent_generation(messages)
+                        print(f"AGENT Think channel: {think_channel}")
+                        print("-"*50)
+                        print(f"AGENT GENERATION: {output_channel}")
+                        output_channel = output_channel.strip()
 
-                    if "FINISH" not in output_channel.upper():
-                        tool_name, tool_args = parse_tool_call(output_channel)
+                        if "FINISH" not in output_channel.upper():
+                            tool_name, tool_args = parse_tool_call(output_channel)
 
-                        if tool_name:
-                            tool_results = await call_tool(tool_name=tool_name, tool_args=tool_args)
-                            if tool_results:
-                                blackboard["tool_result"] = tool_results.content[0].text
+                            if tool_name:
+                                tool_results = await call_tool(tool_name=tool_name, tool_args=tool_args)
+                                if tool_results:
+                                    blackboard["tool_result"] = tool_results.content[0].text
+                        else:
+                            break
 
-                    print(f"blackboard: {json.dumps(blackboard)}")
+                        print(f"blackboard: {json.dumps(blackboard)}")
 
-                    done_step = next_step.replace("TODO","DONE")
-                    current_plan = current_plan.replace(next_step,done_step)
+                        done_step = next_step.replace("TODO","DONE")
+                        current_plan = current_plan.replace(next_step,done_step)
 
-                    if "already_done_steps" not in blackboard:
-                        blackboard["already_done_steps"] = ""
+                        if "already_done_steps" not in blackboard:
+                            blackboard["already_done_steps"] = ""
 
-                    blackboard["already_done_steps"] += done_step
+                        blackboard["already_done_steps"] += done_step
 
                    
 
