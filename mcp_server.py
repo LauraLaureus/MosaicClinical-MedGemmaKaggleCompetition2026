@@ -9,7 +9,7 @@ mcp = FastMCP("MedicalFileManager")
 @mcp.tool()
 async def list_medical_files(folder_path: str) -> str:
     """List all the files in the provided folder_path and the list is flatten into a string with newline character as separator"""
-    return "\n- ".join(os.listdir(folder_path))
+    return "\n- ".join([f"{folder_path}/{file}" for file in os.listdir(folder_path)])
 
 @mcp.tool()
 async def read_file(filepath: str) -> str:
