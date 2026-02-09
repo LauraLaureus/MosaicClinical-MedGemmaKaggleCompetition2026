@@ -22,7 +22,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = AutoModelForCausalLM.from_pretrained(
     model_id, 
     dtype=torch.float32, 
-    device_map={"": device},
+    # device_map={"": device},
     low_cpu_mem_usage=True,
     attn_implementation="sdpa" if sys.platform != "win32" else "eager"
 )
@@ -172,50 +172,67 @@ async def run_agent():
 
                 patient_folder = "./data/Master First"
 
-                INITIAL_PLAN_SYSTEM_PROMPT = f"""
-You are a medical agent with tools to access file system.
-
-TASK:
-The user needs to fill the MODEL CLINICAL HISTORY SUMMARY form with medical data. 
-The medical data is available in the patient folder.
-The user will provide the patient's folder.
-You can use the following tools to access the filesystem:
-{tools_formatted_list}
-
-
-Prepare a plan following the following format. 
-
-PLAN FORMAT:
-TODO  - <list idea> 
-TODO  - Use MedGemma to fill summary
-TODO  - Save final result to summary.txt
-
-{summary_template}
-
-Your current task is writting the plan using the PLAN FORMAT, without introductions or explanations. 
-Write only the tasks you are 100% sure you can complete right now. You will be able to update the plan later. 
-""" 
-                print(f"System prompt: {INITIAL_PLAN_SYSTEM_PROMPT}")
-
-                messages = [
-                {"role": "system", "content": INITIAL_PLAN_SYSTEM_PROMPT},
-                {"role": "user", "content": f"Patient folder'{patient_folder}'"}
-            ]
-
-                think_channel, output_channel = agent_generation(messages)
-                output_channel = output_channel.strip()
+                patient_files = await call_tool("list_medical_files",{"folder_path":patient_folder})
+                
 
                 blackboard = {"planning_step": patient_folder,
                               "summary_template_filepath": "./data/summary_template.txt",
-                              "SUMMARY TEMPLATE": summary_template}
+                              "SUMMARY TEMPLATE": summary_template,
+                              "PATIENT FILES": patient_files.content[0].text}
+
+
+                # _ = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel.strip()})
+                _ = await call_tool("write_file",{"filepath":"./blackboard.txt", "content":json.dumps(blackboard)})
+
+                current_plan = ""
+
+### region execute plan loop
+
+                UPDATE_PLAN_SYSTEM_PROMPT = f"""You are a Medical Plan Supervisor. 
+### AVAILABLE TOOLS
+{tools_formatted_list}
+
+### BLACKBOARD DATA - Current knowledge
+{json.dumps(blackboard)}
+
+### PLAN
+{current_plan}
+"""
+                UPDATE_PLAN_USER_PROMPT = f"""
+### TASK
+Your job is to list the technical steps that are still pending based on the already done tasks, the data in the BLACKBOARD DATA, the AVAILABLE TOOLS to fullfill the SUMMARY TEMPLATE.
+
+### PLAN RULES
+FULL PATH MANDATORY: When reading a file, you MUST combine the Root Folder with the filename. 
+   - Example: If filename is "data.txt", the task must be: "Read {patient_folder}/data.txt".
+DATA CHECK: If a file name is in the Blackboard but its CONTENT has not been read yet, you MUST add a TODO to read it. Use the FULL FILEPATH of the file. Make sure you read the file ONLY ONCE.
+SEQUENTIAL LOGIC: You cannot finish if the TEMPLATE is not fully filled with data from the Blackboard.
+FRESH TODOs: Forget old TODOs. Look at the Blackboard:
+   - If you see a filename -> TODO: TODO: Read {patient_folder}/<filename>
+   - If you have file content -> TODO: Process data with MedGemma.
+   - If the summary is ready -> TODO: Save to TODO: Read {patient_folder}/summary.txt
+TERMINATION: Write ONLY the word "FINISH" if and only if the final file "summary.txt" has been successfully saved to disk.
+FORMAT: Write one "TODO - <description>" per line. No intro. No chat.
+"""
+                messages = [    
+                        {"role":"system", "content":UPDATE_PLAN_SYSTEM_PROMPT},
+                        {"role":"user", "content":UPDATE_PLAN_USER_PROMPT}
+                    ]
+
+                think_channel, output_channel = agent_generation(messages)
+                print(f"AGENT Think channel: {think_channel}")
+                print("-"*50)
+                print(f"AGENT GENERATION: {output_channel}")
+                output_channel = output_channel.strip()
 
 
                 _ = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel.strip()})
                 _ = await call_tool("write_file",{"filepath":"./blackboard.txt", "content":json.dumps(blackboard)})
 
+
                 current_plan = output_channel
 
-### region execute plan loop
+
                 CURRENT_STEP_EXECUTION_SYSTEM_PROMPT = f"""You are a helpful agent that can use the following tools:
 ### TOOLS
 {tools_formatted_list}
@@ -266,47 +283,7 @@ RULES:
 
                     blackboard["already_done_steps"] += done_step
 
-                    UPDATE_PLAN_SYSTEM_PROMPT = f"""You are a Medical Plan Supervisor. 
-### AVAILABLE TOOLS
-{tools_formatted_list}
-
-### BLACKBOARD DATA - Current knowledge
-{json.dumps(blackboard)}
-
-### PLAN
-{current_plan}
-"""
-                    UPDATE_PLAN_USER_PROMPT = f"""
-### TASK
-Your job is to list the technical steps that are still pending based on the already done tasks, the data in the BLACKBOARD DATA, the AVAILABLE TOOLS to fullfill the SUMMARY TEMPLATE.
-
-### PLAN RULES
-DATA CHECK: If a file name is in the Blackboard but its CONTENT has not been read yet, you MUST add a TODO to read it.
-SEQUENTIAL LOGIC: You cannot finish if the TEMPLATE is not fully filled with data from the Blackboard.
-FRESH TODOs: Forget old TODOs. Look at the Blackboard:
-   - If you see a filename -> TODO: Read that file.
-   - If you have file content -> TODO: Process data with MedGemma.
-   - If the summary is ready -> TODO: Save to file.
-TERMINATION: Write ONLY the word "FINISH" if and only if the final file "summary.txt" has been successfully saved to disk.
-FORMAT: Write one "TODO - <description>" per line. No intro. No chat.
-"""
-                    messages = [    
-                        {"role":"system", "content":UPDATE_PLAN_SYSTEM_PROMPT},
-                        {"role":"user", "content":UPDATE_PLAN_USER_PROMPT}
-                    ]
-
-                    think_channel, output_channel = agent_generation(messages)
-                    print(f"AGENT Think channel: {think_channel}")
-                    print("-"*50)
-                    print(f"AGENT GENERATION: {output_channel}")
-                    output_channel = output_channel.strip()
-
-
-                    _ = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel.strip()})
-                    _ = await call_tool("write_file",{"filepath":"./blackboard.txt", "content":json.dumps(blackboard)})
-
-
-                    current_plan = output_channel
+                   
 
 
 if __name__ == "__main__":
