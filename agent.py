@@ -206,7 +206,8 @@ Write only the tasks you are 100% sure you can complete right now. You will be a
                 output_channel = output_channel.strip()
 
                 blackboard = {"planning_step": patient_folder,
-                              "summary_template_filepath": "./data/summary_template.txt"}
+                              "summary_template_filepath": "./data/summary_template.txt",
+                              "SUMMARY TEMPLATE": summary_template}
 
 
                 _ = await call_tool("write_file",{"filepath":"./to-do.txt","content":output_channel.strip()})
@@ -269,27 +270,25 @@ RULES:
 ### AVAILABLE TOOLS
 {tools_formatted_list}
 
-### BLACKBOARD DATA
+### BLACKBOARD DATA - Current knowledge
 {json.dumps(blackboard)}
-
-### TEMPLATE
-{summary_template}
 
 ### PLAN
 {current_plan}
 """
                     UPDATE_PLAN_USER_PROMPT = f"""
 ### TASK
-Your job is to provide a new plan based on the already done tasks, the data in the BLACKBOARD DATA, the AVAILABLE TOOLS to fullfill the TEMPLATE.
+Your job is to list the technical steps that are still pending based on the already done tasks, the data in the BLACKBOARD DATA, the AVAILABLE TOOLS to fullfill the SUMMARY TEMPLATE.
 
 ### PLAN RULES
-- DISCARD all current TODO steps; they are obsolete.
-- CREATE a fresh list of TODO steps based ONLY on what is missing to reach the goal.
-- If the BLACKBOARD DATA contains new information (like new filenames), add specific TODO steps to handle them.
-- If the goal is reached according to the BLACKBOARD DATA, remove all TODOs and write ONLY: FINISH.
-- Write only the plan, without introductions or explanations. 
-- Write the plan step in the format "TODO - <task description>"
-- Write one step per line. 
+DATA CHECK: If a file name is in the Blackboard but its CONTENT has not been read yet, you MUST add a TODO to read it.
+SEQUENTIAL LOGIC: You cannot finish if the TEMPLATE is not fully filled with data from the Blackboard.
+FRESH TODOs: Forget old TODOs. Look at the Blackboard:
+   - If you see a filename -> TODO: Read that file.
+   - If you have file content -> TODO: Process data with MedGemma.
+   - If the summary is ready -> TODO: Save to file.
+TERMINATION: Write ONLY the word "FINISH" if and only if the final file "summary.txt" has been successfully saved to disk.
+FORMAT: Write one "TODO - <description>" per line. No intro. No chat.
 """
                     messages = [    
                         {"role":"system", "content":UPDATE_PLAN_SYSTEM_PROMPT},
