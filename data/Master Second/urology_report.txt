@@ -1,0 +1,27 @@
+Urology Report
+
+-- History:
+
+- Hypertension, smoker  
+- Father with prostate cancer at age 83  
+- Inguinal hernia repair at age 41  
+
+-- Current treatment: Enalapril  
+
+55‑year‑old patient referred due to elevated PSA on primary care laboratory test. Prostatic symptoms for 3 years, well controlled with herbal therapy. No regional lymphadenopathy. No changes in urinary frequency or erectile function.
+
+Examination: Digital rectal exam shows a firm, smooth prostate with mild enlargement. Midline groove present. Margins well defined.
+
+-- Complementary tests
+
+- Laboratory:
+
+| Parameter | Result | Reference Value |
+|-----------|--------|-----------------|
+| PSA Total | 5.8 ng/mL | <4.0 ng/mL (Elevated) |
+| Free PSA | 1.6 ng/mL | Not applicable |
+| Ratio (Free/Total) | 27.5% | >20–25% |
+
+-- Clinical assessment: Benign prostatic hyperplasia.
+
+-- Plan: Initiate Tamsulosin 400 mcg daily.

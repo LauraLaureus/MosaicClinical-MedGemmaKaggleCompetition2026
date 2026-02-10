@@ -1,0 +1,22 @@
+MODEL CLINICAL HISTORY SUMMARY  
+
+1) Demographic Data  
+a. Age  
+b. Sex  
+c. Education level  
+
+2) Drug Allergies  
+
+3) Medical History:  
+a. Vascular risk factors  
+b. Toxic habits  
+c. Other medical conditions...  
+
+4) Surgical History  
+
+5) Current Home Treatment  
+
+6) Baseline Functional Status:  
+a. Living situation  
+b. Level of independence for basic activities of daily living  
+c. Level of independence for instrumental activities of daily living
