@@ -85,7 +85,8 @@ def complete_template(patient_folder : str, template_path: str) -> str:
 
 Update the template with the information of the file. 
 
-Everytime rewrite ONLY the template with the new information if any."""
+Everytime rewrite ONLY the template with the new information if any. Avoid markdown and code blocks.
+"""
 
         messages = [{"role": "system", "content": system_prompt}]
 
