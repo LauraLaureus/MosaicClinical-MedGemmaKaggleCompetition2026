@@ -66,7 +66,10 @@ def call_medgemma(messages:list[dict]) -> str:
         "model": "medgemma-1.5-4b-it", # LMStudio identifier (Currently using Q4_0)
         "messages": messages,
         "temperature": 0.0, # Baja para que sea preciso con los datos médicos
-        "max_tokens": -1    # -1 permite que el modelo use lo que necesite
+        "max_tokens": -1,    # -1 permite que el modelo use lo que necesite
+        "top_p": 1.0, # let temperature rule the generation
+        "seed": 314, 
+        "repeat_penalty":1.1, #break infinite loops
     }
 
     try:
