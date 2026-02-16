@@ -1,0 +1,48 @@
+Internal Medicine Report  
+*Reason for consultation: Referral from primary care due to poorly controlled hypertension.  
+*Family history: Father deceased at 76 years old from acute myocardial infarction; mother deceased with recurrent stroke during life. Maternal uncle died at age 30, cause unknown.  
+*Toxic habits:  
+- Smoker 25 cigarettes/day since age 19  
+- Occasional alcohol consumption  
+- No other drugs
+
+Medical history:
+- Hypertension diagnosed in 2001; irregular control since onset; on Enalapril 10 mg / Hydrochlorothiazide 25 mg, Amlodipine 5 mg, Doxazosin 4 mg.
+- Type 2 diabetes mellitus diagnosed in 2010; no target‑organ damage; not insulin‑dependent; on Metformin 850 mg / Dapagliflozin 25 mg.
+- Mixed dyslipidemia since youth (possible familial); previously on rosuvastatin, discontinued due to myalgias; from 2011 on ezetimibe 10 mg; still elevated levels. Latest labs: total cholesterol 367 mg/dL, triglycerides 400 mg/dL.
+- Rheumatoid arthritis under rheumatology follow‑up; takes Methotrexate 10 mg Tuesdays, folic acid Thursdays; had been on prednisone 5 mg daily for years, discontinued in 2010 after diabetes diagnosis.
+- Pulmonary admission April 2020 for bilateral COVID‑19 pneumonia requiring non‑invasive mechanical ventilation and vasopressors. Post‑discharge mild exertional dyspnea.
+- Mild renal disease (GFR 65 mL/min/1.73 m²), etiology unknown.
+- Oligosymptomatic diverticulosis diagnosed after colonoscopy for positive occult fecal blood.
+
+Surgical history:  
+- Right inguinal hernia repair, 1999  
+- Caesarean section, 1992  
+- Tibial fracture after motor‑vehicle accident repaired with osteosynthesis
+
+History:
+-64‑year‑old female referred from primary care for difficult blood pressure control despite four antihypertensives.
+-Patient reports being asymptomatic. Occasionally experiences holocranial headache; during those episodes BP reads 190/96 mmHg, so she takes rescue Captopril 25 mg at home. Two occasions required presentation to the hospital emergency department because this measure was insufficient.
+-Denies orthopnea and paroxysmal nocturnal dyspnea. Mild exertional dyspnea on moderate‑to‑severe activity that began after admission for COVID‑19.
+-Habitual cough, nonproductive. Never evaluated by pulmonology for COPD.
+-Habitual snoring; partner reports occasional apneas but no sleep study performed.
+
+Physical examination:
+Vital signs: BP 165/89 mmHg, HR 68 bpm, SpO₂ 91% on room air.
+Eupneic, normal skin color, euvolemic. Cardiac auscultation: rhythmic tones, no murmurs. Pulmonary auscultation: preserved vesicular breath sounds, no adventitious sounds. Abdomen: soft and depressible, no masses or organomegaly; bilateral renal percussion negative. Peripheral pulses present and symmetrical.
+
+Diagnoses:  
+Hypertension of difficult control; secondary causes to be excluded.  
+Probable familial hypercholesterolemia.  
+High tobacco consumption.  
+Possible multifactorial renal disease.
+
+Therapeutic plan:
+- Recommend cessation of tobacco use.
+- Request polysomnography for evaluation of sleep apnea, and refer to Pulmonology for assessment of test results.
+- Request laboratory panel including complete lipid profile and renal function estimation.
+- Request renal artery Doppler ultrasound.
+- Request Holter blood pressure monitoring and ECG.
+- Treatment: increase amlodipine to 10 mg q24h; if after 15 days home BP remains similar, add doxazosin 8 mg. Initiate atorvastatin 40 mg/ezetimibe and fenofibrate 10 mg.
+- Strict monitoring of blood glucose at home.
+- Preferential review in Cardiovascular Risk clinic with results of complementary tests.

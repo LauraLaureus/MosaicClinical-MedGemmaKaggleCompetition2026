@@ -1,0 +1,28 @@
+Discharge Summary – Emergency Department  
+
+Chief Complaint: Fever and cough  
+Past Medical History: Hypertension, dyslipidemia, diabetes mellitus, arthritis, smoker  
+
+Reason for visit: 61‑year‑old patient presents to the ED with a 5‑day history of febrile illness and upper airway symptoms. Fever up to 38.1 °C at home 2 days ago. Initially responded to paracetamol but has had almost 24 h without fever reduction despite treatment. Also dry cough and dyspnea on minimal exertion (difficulty moving around the house). Contact with a 3‑year‑old niece 7 days ago; the child attends daycare and developed fever 6 days ago. No abdominal pain. Had a diarrheal episode 3 days ago, self‑limited. Anorexia and generalized asthenia since onset, worsening over time.  
+
+Vitals on presentation: BP 140/85 mmHg, HR 110 bpm, SpO2 89 %, Temp 37.2 °C  
+
+Physical Examination:  
+- Cardiac: rhythmic heart tones without murmurs  
+- Pulmonary: preserved vesicular breath sounds; mild hypophonia at bases and scattered dry crackles  
+- Abdomen: normal  
+- Skin/Mucosa: pallor  
+- Respiratory rate: mild tachypnea
+
+Complementary investigations:
+• Laboratory: CRP 81 mg/L (elevated), leukocyte count normal with lymphopenia; procalcitonin negative; LDH 500 U/L.
+• Arterial blood gas: pH normal, lactate within normal range.
+• Chest X‑ray: no parenchymal consolidations.
+• ECG: sinus tachycardia, tall R waves in precordial leads, similar to prior ECGs.
+
+PLAN  
+Given normal complementary tests, discharge with recommendations.  
+Azithromycin 500 mg PO once daily for 3 days.  
+Paracetamol 1 g PO q8h for 5 days; if fever persists may alternate with Metamizole 525 mg PO.  
+Salbutamol inhaler: 1 puff q12h; additional as needed during the day.  
+If fever persists after 48 h or any alarm signs (intense dyspnea, headache, nausea/vomiting), return to Emergency Department.

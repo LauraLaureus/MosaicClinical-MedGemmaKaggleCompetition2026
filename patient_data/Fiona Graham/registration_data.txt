@@ -1,0 +1,5 @@
+Name: Fiona 
+Surname: Graham
+Clinical record number: 123457
+Date of birth: 06/06/1962
+Gender: Female
