@@ -1,5 +1,5 @@
-First name: Master  
-Last name: Second  
+First name: Diana   
+Last name: Espinosas  
 Medical record number: 123456  
 Date of birth: 12/12/1966  
 Sex: Male
