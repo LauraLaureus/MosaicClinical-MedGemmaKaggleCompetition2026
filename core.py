@@ -84,7 +84,9 @@ def call_medgemma(messages:list[dict]) -> str:
 
 def write_updated_template(updated_template:str, patient_folder: str):
 
-    summary_filepath = os.path.join(patient_folder,"summary.txt")
+    current_date = datetime.now().strftime("%Y%m%d")
+
+    summary_filepath = os.path.join(patient_folder,f"{current_date}_summary.txt")
 
     with open(summary_filepath,"w") as f:
         f.write(updated_template)
