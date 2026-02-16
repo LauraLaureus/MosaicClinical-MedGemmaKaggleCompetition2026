@@ -1,5 +1,5 @@
-First name: Diana   
-Last name: Espinosas  
+First name: Dean   
+Last name: Espinosa  
 Medical record number: 123456  
 Date of birth: 12/12/1966  
 Sex: Male
