@@ -23,6 +23,25 @@ def prepare_text_message(patient_filepath:str, template:str):
 ### FILE
 {file_content}""" }
 
+def prepare_multimodal_message(prompt, text_content, image_bytes=None):
+    """
+    Prepara el payload para MedGemma. 
+    image_bytes debe estar en base64 o ser un objeto compatible con la API.
+    """
+    message = {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": f"{prompt}\n\nCONTENT:\n{text_content}"}
+        ]
+    }
+    
+    if image_bytes:
+        message["content"].append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{image_bytes}"}
+        })
+        
+    return message
 
 def call_medgemma(messages:list[dict]) -> str:
 
@@ -75,35 +94,32 @@ def complete_template(patient_folder : str, template_path: str) -> str:
     except Exception as e:
         raise e
     
-    list_patient_files = [f"{patient_folder}/{file}" for file in os.listdir(patient_folder)]
+    list_patient_files = [f"{patient_folder}/{file}" for file in sorted(os.listdir(patient_folder))]
 
     for filepath in list_patient_files:
 
         extension = extract_extension(filepath)
 
-        system_prompt = """Act like an expert clinician specializing in clinical reasoning and data synthesis.
-Your goal is to update a medical template using information from a new file.
+        system_prompt = """Act like an expert clinical assistant. Your goal is to synthesize medical records into a structured summary.
 
-### CORE OPERATING RULES:
-1. THINK STEP-BY-STEP: Analyze each section of the template against the file content.
-2. PERSISTENCE: If the file has NO information for a section, you MUST keep the exact original text from the template. DO NOT delete or summarize existing data.
-3. INTEGRATION: If new data is found, merge it logically with the existing text.
+### MISSION:
+You will receive a MEDICAL FILE and a TEMPLATE. You must analyze the file and populate the template, merging new findings with existing data.
 
-### CLINICAL INFERENCE RULES:
-- DO NOT be strictly literal. If the clinical data describes severe conditions (e.g., severe cognitive delay, inability to speak, or multiple daily seizures), INFER the functional impact for the "Baseline Functional Status" section.
-- Use medical judgment: Instead of "Not specified", use "Likely dependent/limited due to [Specific Condition Found]".
-- Connect the dots: Use neurological or psychomotor delays to determine the level of independence.
+### ACTION RULES:
+1. DATA HARVESTING: Read every line of the FILE. Extract all available information requested in the templated. If a piece of data fits a field, INSERT IT.
+2. CHRONOLOGICAL OVERWRITE: Treat the FILE as the latest truth. Update ages, dosages, or statuses if they differ from the provided TEMPLATE.
+3. PRESERVATION: Never delete existing data from the template if the new record is silent about that section. Only replace "Not specified" with real data.
+4. CLINICAL INFERENCE (MANDATORY): 
+   - If the diagnosis is a severe neurodevelopmental disorder (e.g., Dravet, encephalopathy), do NOT leave Functional Status as "Not specified". 
+   - Infer: "Dependent for ADLs" and "Lives with family/caregivers".
+5. NO HALLUCINATION: If a field has no data in the template AND no mention in the record, use "Not specified".
 
-### MEDICATION & DATA INTEGRITY RULES:
-- STRICT EVIDENCE: DO NOT list any medication unless it is explicitly named in the file or is already present in the template. 
-- NO PROBABILISTIC GUESSING: Even if a treatment is standard for a condition (e.g., Levetiracetam for Epilepsy), if it is not in the text, DO NOT add it.
-- PLACEHOLDERS: If no medications are mentioned in the new file and the template is empty, write "No medication listed in the analyzed records".
-- AUDIT TRAIL: If you add a medication, ensure it comes from the text or is already present in the template.
+### FORMAT RULES:
+- Output ONLY the populated text. 
+- NO JSON, NO coordinates, NO markdown code blocks (```), NO "Here is the summary".
+- Use bullet points for lists (medications, conditions).
+- Ensure every field ends with ': ' followed by the data.
 
-### OUTPUT FORMAT:
-- Output ONLY the updated template. 
-- NO markdown (no ```), NO code blocks, NO introductions, NO "Here is the update".
-- Start directly with the first section of the template.
 """
 
         messages = [{"role": "system", "content": system_prompt}]
@@ -126,4 +142,4 @@ Your goal is to update a medical template using information from a new file.
 
 
 if __name__ == "__main__":
-    complete_template("./data/Master First","./data/summary_template.txt")
+    complete_template("./patient_data/Beth Castro","./system_data/summary_template.txt")
