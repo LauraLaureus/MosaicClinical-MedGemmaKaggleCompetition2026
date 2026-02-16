@@ -65,11 +65,11 @@ def call_medgemma(messages:list[dict]) -> str:
     payload = {
         "model": "medgemma-1.5-4b-it", # LMStudio identifier (Currently using Q4_0)
         "messages": messages,
-        "temperature": 0.0, # Baja para que sea preciso con los datos médicos
-        "max_tokens": -1,    # -1 permite que el modelo use lo que necesite
-        "top_p": 1.0, # let temperature rule the generation
-        "seed": 314, 
-        "repeat_penalty":1.1, #break infinite loops
+        "temperature": 0.0,
+        "max_tokens": -1,    
+        # "top_p": 1.0, # let temperature rule the generation
+        # "seed": 314, 
+        "repeat_penalty":1.11, #break infinite loops
     }
 
     try:
@@ -116,26 +116,17 @@ def complete_template(patient_folder : str, template_path: str) -> str:
 
         extension = extract_extension(filepath)
 
-        system_prompt = """Act like an expert clinical assistant. Your goal is to synthesize medical records into a structured summary.
+        system_prompt = """
+Act as a Medical Data Integrator. Your task is to update the TEMPLATE using the FILE.
 
-### MISSION:
-You will receive a MEDICAL FILE and a TEMPLATE. You must analyze the file and populate the template, merging new findings with existing data.
+### RULES:
+1. MERGE: You must take the values from the TEMPLATE and update them with facts from the FILE.
+2. OVERWRITE: If a field says "Not specified" but the FILE has data, update it.
+3. INFERENCE: fields related to "Baseline Functional Status" are not always explicited in the text, so think step-by-step and infer a value. 
+4. NO REPETITION: Avoid repetition of data. 
 
-### ACTION RULES:
-1. DATA HARVESTING: Read every line of the FILE. Extract all available information requested in the templated. If a piece of data fits a field, INSERT IT.
-2. CHRONOLOGICAL OVERWRITE: Treat the FILE as the latest truth. Update ages, dosages, or statuses if they differ from the provided TEMPLATE.
-3. PRESERVATION: Never delete existing data from the template if the new record is silent about that section. Only replace "Not specified" with real data.
-4. CLINICAL INFERENCE (MANDATORY): 
-   - If the diagnosis is a severe neurodevelopmental disorder (e.g., Dravet, encephalopathy), do NOT leave Functional Status as "Not specified". 
-   - Infer: "Dependent for ADLs" and "Lives with family/caregivers".
-5. NO HALLUCINATION: If a field has no data in the template AND no mention in the record, use "Not specified".
-
-### FORMAT RULES:
-- Output ONLY the populated text. 
-- NO JSON, NO coordinates, NO markdown code blocks (```), NO "Here is the summary".
-- Use bullet points for lists (medications, conditions).
-- Ensure every field ends with ': ' followed by the data.
-
+### INSTRUCTIONS:
+Update every field of the template now.
 """
 
         messages = [{"role": "system", "content": system_prompt}]
@@ -168,4 +159,5 @@ You will receive a MEDICAL FILE and a TEMPLATE. You must analyze the file and po
 
 if __name__ == "__main__":
     # complete_template("./patient_data/Beth Castro","./system_data/summary_template.txt")
+    complete_template("./patient_data/Dean Espinosa","./system_data/summary_template.txt")
     complete_template("./patient_data/Fiona Graham","./system_data/summary_template.txt")
