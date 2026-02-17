@@ -151,6 +151,7 @@ Update every field of the template now.
         template = call_medgemma(messages)
 
     write_updated_template(template, patient_folder)
+    return template
         
         
 
@@ -158,6 +159,6 @@ Update every field of the template now.
 
 
 if __name__ == "__main__":
-    # complete_template("./patient_data/Beth Castro","./system_data/summary_template.txt")
+    complete_template("./patient_data/Beth Castro","./system_data/summary_template.txt")
     complete_template("./patient_data/Dean Espinosa","./system_data/summary_template.txt")
     complete_template("./patient_data/Fiona Graham","./system_data/summary_template.txt")

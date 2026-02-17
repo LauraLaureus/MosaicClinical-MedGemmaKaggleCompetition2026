@@ -1,10 +1,18 @@
 import gradio as gr
 import core
 import os
+import tempfile
 
 def complete_template(paciente, template):
-    updated_template = core.complete_template(patient_folder="",template_path="")
-    return f"Procesando a {paciente} con el template proporcionado..."
+
+    patient_folder = os.path.join("./patient_data/",paciente)
+    
+    template_path = os.path.join(tempfile.gettempdir(),"template.txt")
+    with open(template_path,"w",encoding="utf-8") as f:
+        f.write(template)
+
+    updated_template = core.complete_template(patient_folder=patient_folder,template_path=template_path)
+    return updated_template
 
 with gr.Blocks(title="MedGemma Clinician Assistant") as demo:
     gr.Markdown("# 🏥 Dashboard for Dr. Anna Doe")
@@ -16,13 +24,13 @@ with gr.Blocks(title="MedGemma Clinician Assistant") as demo:
         with gr.Column(scale=1):
             gr.Markdown("### 📅 Agenda")
             
-            if not os.path.exists("./data"):
+            if not os.path.exists("./patient_data"):
                 raise ValueError("Patient Folder not found.")
             
-            patients = os.listdir("./data")
+            patients = os.listdir("./patient_data")
             lista_pacientes = gr.Radio(
                 patients, 
-                label="Seleccionar paciente (Carpeta)",
+                label="Pick patient (Folder)",
                 value=patients[0] if len(patients) > 0 else None,
                 interactive=True
             )
