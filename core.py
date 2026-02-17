@@ -123,7 +123,8 @@ Act as a Medical Data Integrator. Your task is to update the TEMPLATE using the 
 1. MERGE: You must take the values from the TEMPLATE and update them with facts from the FILE.
 2. OVERWRITE: If a field says "Not specified" but the FILE has data, update it.
 3. INFERENCE: fields related to "Baseline Functional Status" are not always explicited in the text, so think step-by-step and infer a value. 
-4. NO REPETITION: Avoid repetition of data. 
+4. EXTRACTION: fields related to "Treatment" are not always in a section of the document. Read all lines, and think step-by-step which values should be added to these fields.
+5. NO REPETITION: Avoid repetition of data. 
 
 ### INSTRUCTIONS:
 Update every field of the template now.
