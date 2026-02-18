@@ -67,9 +67,10 @@ def call_medgemma(messages:list[dict]) -> str:
         "messages": messages,
         "temperature": 0.0,
         "max_tokens": -1,    
-        # "top_p": 1.0, # let temperature rule the generation
-        # "seed": 314, 
+        "top_p": 1.0, # let temperature rule the generation
+        "seed": 314, 
         "repeat_penalty":1.11, #break infinite loops
+        "top_k": 20,
     }
 
     try:
@@ -79,6 +80,8 @@ def call_medgemma(messages:list[dict]) -> str:
         result = response.json()
         full_content = result['choices'][0]['message']['content']
         clean_content = re.sub(r'<unused94>.*?<unused95>', '', full_content, flags=re.DOTALL).strip()
+
+        print("THINK CHANNEL:" + full_content.split("<unused95>")[0])
         return clean_content
     
     except Exception as e:
@@ -117,17 +120,32 @@ def complete_template(patient_folder : str, template_path: str) -> str:
         extension = extract_extension(filepath)
 
         system_prompt = """
-Act as a Medical Data Integrator. Your task is to update the TEMPLATE using the FILE.
+Act as a Medical Data Integrator. Your task is to update the TEMPLATE using the  facts in the FILE.
+
+First of all read carefully the FILE.
+Then go to the TEMPLATE and for every field apply the following rules.
+
 
 ### RULES:
-1. MERGE: You must take the values from the TEMPLATE and update them with facts from the FILE.
-2. OVERWRITE: If a field says "Not specified" but the FILE has data, update it.
+
+1. COMPLETION: if the field is empty or "Not specified" and the FILE contains related information. Complete the field.
+
+2. UPDATE: if the current FILE has complete new information for the field update it. 
+
 3. INFERENCE: fields related to "Baseline Functional Status" are not always explicited in the text, so think step-by-step and infer a value. 
-4. EXTRACTION: fields related to "Treatment" are not always in a section of the document. Read all lines, and think step-by-step which values should be added to these fields.
+
+4. EXTRACTION: fields related to "Treatment" are not always in a section of the document. Read all lines, and think step-by-step and list the values with their dosage.
+
 5. NO REPETITION: Avoid repetition of data. 
 
+### FORMAT RULES:
+- Avoid introducing the template.
+- If needed fix the format by trailing : after a field name. 
+- Avoid code blocks 
+- Avoid JSON.
+
 ### INSTRUCTIONS:
-Update every field of the template now.
+Write only the updated template now.  
 """
 
         messages = [{"role": "system", "content": system_prompt}]
