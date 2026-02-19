@@ -99,6 +99,34 @@ def write_updated_template(updated_template:str, patient_folder: str):
     with open(summary_filepath,"w") as f:
         f.write(updated_template)
 
+def preprocess_and_chunk_template(template_path):
+
+    with open(template_path, "r", encoding="utf-8") as f:
+        template_raw = f.read()
+
+    system_prompt = (
+        "Act as a Template Architect. Your task is to transform any medical template into a "
+        "structured list where every field ends with ': Not specified'.\n"
+        "RULES:\n"
+        "- Maintain the original hierarchy (1, a, b...).\n"
+        "- Ensure every final field is followed by ': Not specified'.\n"
+        "- GROUP fields by their natural sections.\n"
+        "- Add EXACTLY TWO newlines (\\n\\n) between each major section.\n"
+        "- Output ONLY the transformed template."
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"Normalize this template:\n\n{template_raw}"}
+    ]
+
+    normalized_template = call_medgemma(messages)
+
+    chunks = [chunk.strip() for chunk in normalized_template.split("\n\n") if len(chunk.strip()) > 0]
+
+    return chunks
+
+
 
 def complete_template(patient_folder : str, template_path: str) -> str:
 
@@ -110,8 +138,9 @@ def complete_template(patient_folder : str, template_path: str) -> str:
     
     template = ""
     try:
-        with open(template_path, "r",encoding="utf-8") as f:
-            template = f.read()
+        # with open(template_path, "r",encoding="utf-8") as f:
+        #     template = f.read()
+        chunks = preprocess_and_chunk_template(template_path)
     except Exception as e:
         raise e
     
