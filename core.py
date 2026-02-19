@@ -122,15 +122,18 @@ def complete_template(patient_folder : str, template_path: str) -> str:
         extension = extract_extension(filepath)
 
         system_prompt = """
-Act as a Medical Information Extractor. 
+Act as a deterministic clinical database. 
 
-RULES:
-- Only output the updated TEMPLATE. 
-- Never repeat these rules or section titles.
-- Keep existing data from TEMPLATE; only update if FILE has new facts.
-- For medication: Scan every line of FILE. List name, dose, and frequency.
-- For functional status: If the information is not explicit, infer it.
-- No JSON, no markdown, no code blocks.
+### CONSTRAINTS:
+1. OUTPUT STRUCTURE: You must return the EXACT field names from the TEMPLATE. Never add comments like "not stated" or "not explicit".
+2. PERSISTENCE: If the FILE is silent about a field, you MUST copy the original value from the TEMPLATE exactly as it is. 
+3. DRUG EXTRACTION: Fields related to "Treatment" can contain a list of drugs. Scan the FILE for any chemical name or brand name (e.g., Valproato, Clobazam, Topiramato, Cannabidiol, Omeprazol, Montelukast). List them with dose and frequency. 
+4. SEMANTIC SEPARATION: "Home Education" is NOT a "Home Treatment". Map education-related facts to "Education Level".
+5. INFERENCE: for fields related to "Baseline Functional Status" infer their value if not stated explicitly.
+
+### FORMAT:
+- No conversational text. No intro. No markdown. No JSON.
+- FIELD: VALUE
 """
 
         messages = [{"role": "system", "content": system_prompt}]
