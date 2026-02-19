@@ -96,7 +96,7 @@ def write_updated_template(updated_template:str, patient_folder: str):
 
     summary_filepath = os.path.join(patient_folder,f"{current_date}_summary.txt")
 
-    with open(summary_filepath,"w") as f:
+    with open(summary_filepath,"w",encoding="utf-8") as f:
         f.write(updated_template)
 
 def preprocess_and_chunk_template(template_path):
@@ -126,6 +126,80 @@ def preprocess_and_chunk_template(template_path):
 
     return chunks
 
+def process_text_file(filepath, chunks):
+    """
+    Procesa el archivo médico completo contra cada chunk del template.
+    """
+    # 1. Leer el archivo médico completo (Contexto global)
+    with open(filepath, "r", encoding="utf-8") as f:
+        full_medical_file = f.read()
+
+    # 2. Definir el System Prompt de extracción (Mano de Hierro)
+    # Este prompt está optimizado para que el modelo solo se centre en el fragmento dado
+    system_prompt_extractor = (
+        "Act as a Clinical Data Record Keeper. Your task is to fill the provided TEMPLATE FRAGMENT "
+        "using facts from the MEDICAL FILE.\n\n"
+        "RULES:\n"
+        "- RETAIN the original value if the FILE does not mention a field.\n"
+        "- NEVER add conversational filler or comments like 'not specified'.\n"
+        "- Map medications (name, dose, frequency) and functional status accurately.\n"
+        "- Output ONLY the filled template fragment."
+    )
+
+    processed_history = []
+
+    # 3. Iterar sobre cada chunk (Procesamiento segmentado)
+    for i, chunk in enumerate(chunks):
+        print(f"Procesando bloque {i+1} de {len(chunks)}...")
+        
+        messages = [
+            {"role": "system", "content": system_prompt_extractor},
+            {"role": "user", "content": f"### MEDICAL FILE:\n{full_medical_file}\n\n### TEMPLATE FRAGMENT:\n{chunk}"}
+        ]
+
+        # Llamada al modelo para este fragmento específico
+        # El modelo tiene el contexto completo pero la tarea es pequeña
+        filled_fragment = call_medgemma(messages)
+        
+        # Limpieza básica para evitar duplicados de etiquetas si el modelo las repite
+        processed_history.append(filled_fragment.strip())
+
+    # 4. Reconstrucción final
+    # Unimos todo con el doble salto de línea para mantener la estructura original
+    return "\n\n".join(processed_history)
+
+
+
+def process_image_file(filepath, chunks):
+    """
+    1. Analiza una imagen con MedGemma para generar un reporte textual.
+    2. Guarda el reporte con el formato de nombre: YYYYMMDD-auto-report-nombre.txt
+    3. Llama a process_text_file para integrar la información en el template por chunks.
+    """
+    # 1. Preparar y llamar a MedGemma para el análisis de imagen
+    # Se asume que prepare_image_message ya gestiona la conversión de la imagen
+    img_report_messages = prepare_image_message(filepath)
+    image_report = call_medgemma(img_report_messages)
+    
+    # 2. Gestión de nombres de archivo y fechas
+    filename = os.path.basename(filepath)
+    name_no_ext = os.path.splitext(filename)[0]
+    patient_folder = os.path.dirname(filepath)
+    
+    if name_no_ext[:8].isdigit():
+        date_prefix = name_no_ext[:8]
+    else:
+        date_prefix = datetime.now().strftime("%Y%m%d")
+        
+    new_report_name = f"{date_prefix}-auto-report-{name_no_ext}.txt"
+    new_report_path = os.path.join(patient_folder, new_report_name)
+    
+    with open(new_report_path, "w", encoding="utf-8") as f:
+        f.write(image_report)
+    
+    print(f"Reporte de imagen generado en: {new_report_name}")
+    
+    return process_text_file(new_report_path, chunks)
 
 
 def complete_template(patient_folder : str, template_path: str) -> str:
@@ -138,8 +212,6 @@ def complete_template(patient_folder : str, template_path: str) -> str:
     
     template = ""
     try:
-        # with open(template_path, "r",encoding="utf-8") as f:
-        #     template = f.read()
         chunks = preprocess_and_chunk_template(template_path)
     except Exception as e:
         raise e
@@ -150,41 +222,15 @@ def complete_template(patient_folder : str, template_path: str) -> str:
 
         extension = extract_extension(filepath)
 
-        system_prompt = """
-Act as a deterministic clinical database. 
-
-### CONSTRAINTS:
-1. OUTPUT STRUCTURE: You must return the EXACT field names from the TEMPLATE. Never add comments like "not stated" or "not explicit".
-2. PERSISTENCE: If the FILE is silent about a field, you MUST copy the original value from the TEMPLATE exactly as it is. 
-3. DRUG EXTRACTION: Fields related to "Treatment" can contain a list of drugs. Scan the FILE for any chemical name or brand name (e.g., Valproato, Clobazam, Topiramato, Cannabidiol, Omeprazol, Montelukast). List them with dose and frequency. 
-4. SEMANTIC SEPARATION: "Home Education" is NOT a "Home Treatment". Map education-related facts to "Education Level".
-5. INFERENCE: for fields related to "Baseline Functional Status" infer their value if not stated explicitly.
-
-### FORMAT:
-- No conversational text. No intro. No markdown. No JSON.
-- FIELD: VALUE
-"""
-
-        messages = [{"role": "system", "content": system_prompt}]
-
         match(extension.lower()):
             case "txt" | "md" | "json" | "csv":
-                messages.append(prepare_text_message(filepath,template))
-            case "jpg" | "jpeg" | "png" | "tiff":
-                img_report_messages = prepare_image_message(filepath)
-                image_report = call_medgemma(img_report_messages)
-                filename = os.path.basename(filepath)
-                name_no_ext = os.path.splitext(filename)[0]
-                date_prefix = name_no_ext[:8] if name_no_ext[:8].isdigit() else datetime.now().strftime("%Y%m%d")
-                new_report_name = f"{date_prefix}_auto-report_{name_no_ext}.txt"
-                new_report_path = os.path.join(patient_folder, new_report_name)
-                with open(new_report_path, "w", encoding="utf-8") as f:
-                    f.write(image_report)
-                messages.append(prepare_text_message(new_report_path, template))
-            case "dicom":
-                pass
+                template = process_text_file(filepath,chunks)
 
-        template = call_medgemma(messages)
+            case "jpg" | "jpeg" | "png" | "tiff":
+                template = process_image_file(filepath,chunks)
+
+        chunks = [chunk.strip() for chunk in template.split("\n\n") if len(chunk.strip()) > 0]
+
 
     write_updated_template(template, patient_folder)
     return template
