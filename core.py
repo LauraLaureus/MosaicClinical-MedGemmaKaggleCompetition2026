@@ -18,12 +18,14 @@ def prepare_text_message(patient_filepath:str, template:str):
     except Exception as e:
         raise e
 
-    return {"role": "user", "content": f"""### TEMPLATE 
+    return {"role": "user", "content": f"""### DATA:
+TEMPLATE:
 {template}
 
+FILE:
+{file_content}
 
-### FILE
-{file_content}""" }
+### FULLFILLED TEMPLATE:""" }
 
 
 def encode_image(image_path):
@@ -69,7 +71,7 @@ def call_medgemma(messages:list[dict]) -> str:
         "max_tokens": -1,    
         "top_p": 1.0, # let temperature rule the generation
         "seed": 314, 
-        "repeat_penalty":1.11, #break infinite loops
+        "repeat_penalty":1.15, #break infinite loops
         "top_k": 20,
     }
 
@@ -120,32 +122,15 @@ def complete_template(patient_folder : str, template_path: str) -> str:
         extension = extract_extension(filepath)
 
         system_prompt = """
-Act as a Medical Data Integrator. Your task is to update the TEMPLATE using the  facts in the FILE.
+Act as a Medical Information Extractor. 
 
-First of all read carefully the FILE.
-Then go to the TEMPLATE and for every field apply the following rules.
-
-
-### RULES:
-
-1. COMPLETION: if the field is empty or "Not specified" and the FILE contains related information. Complete the field.
-
-2. UPDATE: if the current FILE has complete new information for the field update it. 
-
-3. INFERENCE: fields related to "Baseline Functional Status" are not always explicited in the text, so think step-by-step and infer a value. 
-
-4. EXTRACTION: fields related to "Treatment" are not always in a section of the document. Read all lines, and think step-by-step and list the values with their dosage.
-
-5. NO REPETITION: Avoid repetition of data. 
-
-### FORMAT RULES:
-- Avoid introducing the template.
-- If needed fix the format by trailing : after a field name. 
-- Avoid code blocks 
-- Avoid JSON.
-
-### INSTRUCTIONS:
-Write only the updated template now.  
+RULES:
+- Only output the updated TEMPLATE. 
+- Never repeat these rules or section titles.
+- Keep existing data from TEMPLATE; only update if FILE has new facts.
+- For medication: Scan every line of FILE. List name, dose, and frequency.
+- For functional status: If the information is not explicit, infer it.
+- No JSON, no markdown, no code blocks.
 """
 
         messages = [{"role": "system", "content": system_prompt}]
@@ -179,5 +164,5 @@ Write only the updated template now.
 
 if __name__ == "__main__":
     complete_template("./patient_data/Beth Castro","./system_data/summary_template.txt")
-    complete_template("./patient_data/Dean Espinosa","./system_data/summary_template.txt")
-    complete_template("./patient_data/Fiona Graham","./system_data/summary_template.txt")
+    # complete_template("./patient_data/Dean Espinosa","./system_data/summary_template.txt")
+    # complete_template("./patient_data/Fiona Graham","./system_data/summary_template.txt")
