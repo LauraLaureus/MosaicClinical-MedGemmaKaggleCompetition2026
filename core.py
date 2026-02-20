@@ -150,6 +150,8 @@ RULES (MANDATORY):
 - For fields that can contain multiple items (e.g., lists of medications, diagnoses, treatments), write ALL items in a SINGLE LINE after the colon, separated by commas.
 - Keep exactly the same labels, numbering and order as in the TEMPLATE FRAGMENT.
 - Output ONLY the rewritten TEMPLATE FRAGMENT, nothing else before or after.
+- You MUST check EVERY field in the TEMPLATE FRAGMENT against the MEDICAL FILE, even if some fields seem unrelated to the most obvious findings.
+- Do NOT focus only on the last field or the most prominent diagnosis.
 """
 
     processed_history = []
