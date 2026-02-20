@@ -145,9 +145,12 @@ You will receive:
 RULES (MANDATORY):
 - Only fill fields that ALREADY EXIST in the TEMPLATE FRAGMENT.
 - NEVER create new fields, headings, bullets or comments.
-- If the MEDICAL FILE does not clearly mention a field, KEEP the original text.
-- Keep exactly the same labels, numbering and order.
-- Output ONLY the TEMPLATE FRAGMENT, nothing else."""
+- If the MEDICAL FILE clearly provides information for a field, you MUST UPDATE that field, even if the TEMPLATE FRAGMENT already contains a previous value.
+- If the MEDICAL FILE does not clearly mention a field, KEEP the original text exactly as it appears in the TEMPLATE FRAGMENT.
+- For fields that can contain multiple items (e.g., lists of medications, diagnoses, treatments), write ALL items in a SINGLE LINE after the colon, separated by commas.
+- Keep exactly the same labels, numbering and order as in the TEMPLATE FRAGMENT.
+- Output ONLY the rewritten TEMPLATE FRAGMENT, nothing else before or after.
+"""
 
     processed_history = []
 
