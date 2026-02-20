@@ -1,22 +1,20 @@
-MODEL CLINICAL HISTORY SUMMARY  
-
 1) Demographic Data  
-a. Age  
-b. Sex  
-c. Education level  
+a. Age: Not specified  
+b. Sex: Not specified  
+c. Education level: Not specified  
 
-2) Drug Allergies  
+2) Drug Allergies: Not specified  
 
-3) Medical History:  
-a. Vascular risk factors  
-b. Toxic habits  
-c. Other medical conditions...  
+3) Medical History  
+a. Vascular risk factors: Not specified
+b. Toxic habits: Not specified  
+c. Other medical conditions: Not specified  
 
-4) Surgical History  
+4) Surgical History: Not specified  
 
-5) Current Home Treatment  
+5) Current Home Treatment: Not specified  
 
-6) Baseline Functional Status:  
-a. Living situation  
-b. Level of independence for basic activities of daily living  
-c. Level of independence for instrumental activities of daily living
+6) Baseline Functional Status  
+a. Living situation: Not specified  
+b. Level of independence for basic activities of daily living: Not specified  
+c. Level of independence for instrumental activities of daily living: Not specified
