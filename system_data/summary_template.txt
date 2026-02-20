@@ -12,7 +12,9 @@ c. Other medical conditions: Not specified
 
 4) Surgical History: Not specified  
 
-5) Current Home Treatment: Not specified  
+5) Current Home Treatment
+a. Medication list: Not specified
+b. Other home treatments: Not specified 
 
 6) Baseline Functional Status  
 a. Living situation: Not specified  
