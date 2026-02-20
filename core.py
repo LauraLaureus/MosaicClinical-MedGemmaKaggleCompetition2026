@@ -99,30 +99,30 @@ def write_updated_template(updated_template:str, patient_folder: str):
     with open(summary_filepath,"w",encoding="utf-8") as f:
         f.write(updated_template)
 
-def preprocess_and_chunk_template(template_path):
+def preprocess_template(template_path):
 
     with open(template_path, "r", encoding="utf-8") as f:
         template_raw = f.read()
 
-    system_prompt = (
-        "Act as a Template Architect. Your task is to transform any medical template into a "
-        "structured list where every field ends with ': Not specified'.\n"
-        "RULES:\n"
-        "- Maintain the original hierarchy (1, a, b...).\n"
-        "- Ensure every final field is followed by ': Not specified'.\n"
-        "- GROUP fields by their natural sections.\n"
-        "- Add EXACTLY TWO newlines (\\n\\n) between each major section.\n"
-        "- Output ONLY the transformed template."
-    )
+    # system_prompt = (
+    #     "Act as a Template Architect. Your task is to transform any medical template into a "
+    #     "structured list where every field ends with ': Not specified'.\n"
+    #     "RULES:\n"
+    #     "- Maintain the original hierarchy (1, a, b...).\n"
+    #     "- Ensure every final field is followed by ': Not specified'.\n"
+    #     "- GROUP fields by their natural sections.\n"
+    #     "- Add EXACTLY TWO newlines (\\n\\n) between each major section.\n"
+    #     "- Output ONLY the transformed template."
+    # )
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Normalize this template:\n\n{template_raw}"}
-    ]
+    # messages = [
+    #     {"role": "system", "content": system_prompt},
+    #     {"role": "user", "content": f"Normalize this template:\n\n{template_raw}"}
+    # ]
 
-    normalized_template = call_medgemma(messages)
+    # normalized_template = call_medgemma(messages)
 
-    chunks = [chunk.strip() for chunk in normalized_template.split("\n\n") if len(chunk.strip()) > 0]
+    chunks = [chunk.strip() for chunk in template_raw.split("\n\n") if len(chunk.strip()) > 0]
 
     return chunks
 
@@ -136,15 +136,18 @@ def process_text_file(filepath, chunks):
 
     # 2. Definir el System Prompt de extracción (Mano de Hierro)
     # Este prompt está optimizado para que el modelo solo se centre en el fragmento dado
-    system_prompt_extractor = (
-        "Act as a Clinical Data Record Keeper. Your task is to fill the provided TEMPLATE FRAGMENT "
-        "using facts from the MEDICAL FILE.\n\n"
-        "RULES:\n"
-        "- RETAIN the original value if the FILE does not mention a field.\n"
-        "- NEVER add conversational filler or comments like 'not specified'.\n"
-        "- Map medications (name, dose, frequency) and functional status accurately.\n"
-        "- Output ONLY the filled template fragment."
-    )
+    system_prompt_extractor = """You are a clinical data record keeper.
+
+You will receive:
+1) MEDICAL FILE (full text).
+2) TEMPLATE FRAGMENT (part of a larger template).
+
+RULES (MANDATORY):
+- Only fill fields that ALREADY EXIST in the TEMPLATE FRAGMENT.
+- NEVER create new fields, headings, bullets or comments.
+- If the MEDICAL FILE does not clearly mention a field, KEEP the original text.
+- Keep exactly the same labels, numbering and order.
+- Output ONLY the TEMPLATE FRAGMENT, nothing else."""
 
     processed_history = []
 
@@ -154,19 +157,32 @@ def process_text_file(filepath, chunks):
         
         messages = [
             {"role": "system", "content": system_prompt_extractor},
-            {"role": "user", "content": f"### MEDICAL FILE:\n{full_medical_file}\n\n### TEMPLATE FRAGMENT:\n{chunk}"}
+            {"role": "user", "content": f"""MEDICAL FILE:
+<<<
+{full_medical_file}
+>>>
+
+TEMPLATE FRAGMENT:
+<<<
+{chunk}
+>>>
+Return ONLY the TEMPLATE FRAGMENT with updated values after the colon."""
+}
         ]
 
         # Llamada al modelo para este fragmento específico
         # El modelo tiene el contexto completo pero la tarea es pequeña
         filled_fragment = call_medgemma(messages)
+
+        filtered_fragment = filter_output(chunk,filled_fragment)
         
         # Limpieza básica para evitar duplicados de etiquetas si el modelo las repite
-        processed_history.append(filled_fragment.strip())
+        processed_history.append(filtered_fragment.strip())
 
     # 4. Reconstrucción final
     # Unimos todo con el doble salto de línea para mantener la estructura original
-    return "\n\n".join(processed_history)
+    # return "\n\n".join(processed_history)
+    return processed_history
 
 
 
@@ -202,6 +218,63 @@ def process_image_file(filepath, chunks):
     return process_text_file(new_report_path, chunks)
 
 
+def filter_output(chunk: str, model_output: str) -> str:
+    """
+    Usa chunk como plantilla rígida.
+    - Respeta títulos y etiquetas exactas del chunk.
+    - Para líneas con "clave: valor", intenta sustituir solo el valor (lo que va tras ":").
+    - Ignora cualquier etiqueta nueva que el modelo invente.
+    """
+    # Normaliza la salida del modelo, quita ``` y markdown básico
+    text = (
+        model_output
+        .replace("```json", "")
+        .replace("```", "")
+        .replace("**", "")
+        .strip()
+    )
+    resp_lines = [l.rstrip() for l in text.splitlines() if l.strip()]
+
+    # Construimos un diccionario clave -> línea completa propuesta por el modelo
+    # clave = parte antes de ":"
+    resp_dict = {}
+    for l in resp_lines:
+        if ":" in l:
+            key = l.split(":", 1)[0].strip()
+            resp_dict[key] = l
+
+    filtered_lines = []
+    for orig_line in chunk.splitlines():
+        line = orig_line.rstrip("\n")
+
+        # Línea vacía: se respeta
+        if not line.strip():
+            filtered_lines.append(line)
+            continue
+
+        # Si no tiene ":", es título / encabezado / numeración → la dejamos igual
+        if ":" not in line:
+            filtered_lines.append(line)
+            continue
+
+        # Línea tipo "clave: valor"
+        key, orig_value = line.split(":", 1)
+        key_stripped = key.strip()
+
+        if key_stripped in resp_dict:
+            # Tenemos una propuesta del modelo para esta clave
+            model_line = resp_dict[key_stripped]
+            # Nos quedamos solo con lo que haya tras ":" en la línea propuesta
+            _, model_value = model_line.split(":", 1)
+            new_line = f"{key}: {model_value.strip()}"
+            filtered_lines.append(new_line)
+        else:
+            # El modelo no ha propuesto nada para esta clave → conservamos el original
+            filtered_lines.append(line)
+
+    return "\n".join(filtered_lines)
+
+
 def complete_template(patient_folder : str, template_path: str) -> str:
 
     if not os.path.exists(template_path):
@@ -212,7 +285,7 @@ def complete_template(patient_folder : str, template_path: str) -> str:
     
     template = ""
     try:
-        chunks = preprocess_and_chunk_template(template_path)
+        chunks = preprocess_template(template_path)
     except Exception as e:
         raise e
     
@@ -224,14 +297,17 @@ def complete_template(patient_folder : str, template_path: str) -> str:
 
         match(extension.lower()):
             case "txt" | "md" | "json" | "csv":
-                template = process_text_file(filepath,chunks)
+                # template = process_text_file(filepath,chunks)
+                chunks = process_text_file(filepath,chunks)
 
             case "jpg" | "jpeg" | "png" | "tiff":
-                template = process_image_file(filepath,chunks)
+                # template = process_image_file(filepath,chunks)
+                chunks = process_image_file(filepath,chunks)
 
-        chunks = [chunk.strip() for chunk in template.split("\n\n") if len(chunk.strip()) > 0]
+        # chunks = [chunk.strip() for chunk in template.split("\n\n") if len(chunk.strip()) > 0]
 
 
+    template = "\n\n".join(chunks)
     write_updated_template(template, patient_folder)
     return template
         
