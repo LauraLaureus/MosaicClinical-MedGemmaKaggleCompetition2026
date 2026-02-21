@@ -6,27 +6,11 @@ import re
 import base64
 from datetime import datetime
 
+
+# region Utils 
+
 def extract_extension(filepath:str):
     return filepath.split(".")[-1]
-
-def prepare_text_message(patient_filepath:str, template:str):
-
-    try:
-        file_content = ""
-        with open(patient_filepath, "r") as f:
-            file_content = f.read()
-    except Exception as e:
-        raise e
-
-    return {"role": "user", "content": f"""### DATA:
-TEMPLATE:
-{template}
-
-FILE:
-{file_content}
-
-### FULLFILLED TEMPLATE:""" }
-
 
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
@@ -34,7 +18,6 @@ def encode_image(image_path):
 
 def prepare_image_message(filepath):
     image_base64 = encode_image(filepath)
-    # Detectamos el tipo mime básico según la extensión
     mime_type = "image/jpeg" if filepath.lower().endswith(('jpg', 'jpeg')) else "image/png"
     
     prompt_transcripcion = (
@@ -56,40 +39,6 @@ def prepare_image_message(filepath):
         ]
     }]
 
-def call_medgemma(messages:list[dict]) -> str:
-
-    lmstudio_url = "http://localhost:1234/v1/chat/completions"
-
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "model": "medgemma-1.5-4b-it", # LMStudio identifier (Currently using Q4_0)
-        "messages": messages,
-        "temperature": 0.0,
-        "max_tokens": -1,    
-        "top_p": 1.0, # let temperature rule the generation
-        "seed": 314, 
-        "repeat_penalty":1.1, #break infinite loops
-        "top_k": 40,
-    }
-
-    try:
-        response = requests.post(lmstudio_url, headers=headers, data=json.dumps(payload))
-        response.raise_for_status() # Lanza error si la petición falla
-        
-        result = response.json()
-        full_content = result['choices'][0]['message']['content']
-        clean_content = re.sub(r'<unused94>.*?<unused95>', '', full_content, flags=re.DOTALL).strip()
-
-        print("THINK CHANNEL:" + full_content.split("<unused95>")[0])
-        return clean_content
-    
-    except Exception as e:
-       raise e
-
-
 def write_updated_template(updated_template:str, patient_folder: str):
 
     current_date = datetime.now().strftime("%Y%m%d")
@@ -99,6 +48,43 @@ def write_updated_template(updated_template:str, patient_folder: str):
     with open(summary_filepath,"w",encoding="utf-8") as f:
         f.write(updated_template)
 
+# MedGemma is served in LMStudio
+def call_medgemma(messages:list[dict]) -> str:
+
+    lmstudio_url = "http://localhost:1234/v1/chat/completions"
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "medgemma-1.5-4b-it", # LMStudio identifier (Currently using Q8_K_XL)
+        "messages": messages,
+        "temperature": 0.0,
+        "max_tokens": -1,    
+        "top_p": 1.0, # let temperature rule the generation
+        "seed": 314, 
+        "repeat_penalty":1.15, #break infinite loops
+        "top_k": 20,
+    }
+
+    try:
+        response = requests.post(lmstudio_url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status() 
+        
+        result = response.json()
+        full_content = result['choices'][0]['message']['content']
+        clean_content = re.sub(r'<unused94>.*?<unused95>', '', full_content, flags=re.DOTALL).strip()
+
+        return clean_content
+    
+    except Exception as e:
+       raise e
+
+# endregion
+
+# region Pre process functions
+
 def preprocess_template(template_path):
 
     with open(template_path, "r", encoding="utf-8") as f:
@@ -107,6 +93,74 @@ def preprocess_template(template_path):
     chunks = [chunk.strip() for chunk in template_raw.split("\n\n") if len(chunk.strip()) > 0]
 
     return chunks
+
+# endregion
+
+# region Post process  functions
+def filter_output(chunk: str, model_output: str) -> str:
+    """
+    Usa chunk como plantilla rígida.
+    - Respeta títulos y etiquetas exactas del chunk.
+    - Para líneas con "clave: valor", intenta sustituir solo el valor (lo que va tras ":").
+    - Ignora cualquier etiqueta nueva que el modelo invente.
+    """
+    # Normaliza la salida del modelo, quita ``` y markdown básico
+    text = (
+        model_output
+        .replace("```json", "")
+        .replace("```", "")
+        .replace("**", "")
+        .strip()
+    )
+    resp_lines = [l.rstrip() for l in text.splitlines() if l.strip()]
+
+    # Construimos un diccionario clave -> línea completa propuesta por el modelo
+    # clave = parte antes de ":"
+    resp_dict = {}
+    for l in resp_lines:
+        if ":" in l:
+            key = l.split(":", 1)[0].strip()
+            resp_dict[key] = l
+
+    filtered_lines = []
+    for orig_line in chunk.splitlines():
+        line = orig_line.rstrip("\n")
+
+        # Línea vacía: se respeta
+        if not line.strip():
+            filtered_lines.append(line)
+            continue
+
+        # Si no tiene ":", es título / encabezado / numeración → la dejamos igual
+        if ":" not in line:
+            filtered_lines.append(line)
+            continue
+
+        # Línea tipo "clave: valor"
+        key, orig_value = line.split(":", 1)
+        key_stripped = key.strip()
+
+        if key_stripped in resp_dict:
+            # Tenemos una propuesta del modelo para esta clave
+            model_line = resp_dict[key_stripped]
+            # Nos quedamos solo con lo que haya tras ":" en la línea propuesta
+            _, model_value = model_line.split(":", 1)
+            new_line = f"{key}: {model_value.strip()}"
+            filtered_lines.append(new_line)
+        else:
+            # El modelo no ha propuesto nada para esta clave → conservamos el original
+            filtered_lines.append(line)
+
+    return "\n".join(filtered_lines)
+
+def clean_template_guidance(template_text: str) -> str:
+    """Elimina directrices entre paréntesis de labels del template"""
+    import re
+    
+    # Patrón: "campo (directriz): valor" → "campo: valor"
+    cleaned = re.sub(r'\s*\([^)]*\)\s*:', ':', template_text)
+    return cleaned.strip()
+# endregion
 
 def process_text_file(filepath, chunks):
     """
@@ -173,16 +227,13 @@ Return ONLY the TEMPLATE FRAGMENT with updated values after the colon."""
 
 def process_image_file(filepath, chunks):
     """
-    1. Analiza una imagen con MedGemma para generar un reporte textual.
-    2. Guarda el reporte con el formato de nombre: YYYYMMDD-auto-report-nombre.txt
-    3. Llama a process_text_file para integrar la información en el template por chunks.
+    1. Analyze a image for generating a text report
+    2. Save the report with the name: YYYYMMDD-auto-report-original-file-name.txt
+    3. Call process_text_file to integrate the report.
     """
-    # 1. Preparar y llamar a MedGemma para el análisis de imagen
-    # Se asume que prepare_image_message ya gestiona la conversión de la imagen
     img_report_messages = prepare_image_message(filepath)
     image_report = call_medgemma(img_report_messages)
     
-    # 2. Gestión de nombres de archivo y fechas
     filename = os.path.basename(filepath)
     name_no_ext = os.path.splitext(filename)[0]
     patient_folder = os.path.dirname(filepath)
@@ -201,71 +252,6 @@ def process_image_file(filepath, chunks):
     print(f"Reporte de imagen generado en: {new_report_name}")
     
     return process_text_file(new_report_path, chunks)
-
-def filter_output(chunk: str, model_output: str) -> str:
-    """
-    Usa chunk como plantilla rígida.
-    - Respeta títulos y etiquetas exactas del chunk.
-    - Para líneas con "clave: valor", intenta sustituir solo el valor (lo que va tras ":").
-    - Ignora cualquier etiqueta nueva que el modelo invente.
-    """
-    # Normaliza la salida del modelo, quita ``` y markdown básico
-    text = (
-        model_output
-        .replace("```json", "")
-        .replace("```", "")
-        .replace("**", "")
-        .strip()
-    )
-    resp_lines = [l.rstrip() for l in text.splitlines() if l.strip()]
-
-    # Construimos un diccionario clave -> línea completa propuesta por el modelo
-    # clave = parte antes de ":"
-    resp_dict = {}
-    for l in resp_lines:
-        if ":" in l:
-            key = l.split(":", 1)[0].strip()
-            resp_dict[key] = l
-
-    filtered_lines = []
-    for orig_line in chunk.splitlines():
-        line = orig_line.rstrip("\n")
-
-        # Línea vacía: se respeta
-        if not line.strip():
-            filtered_lines.append(line)
-            continue
-
-        # Si no tiene ":", es título / encabezado / numeración → la dejamos igual
-        if ":" not in line:
-            filtered_lines.append(line)
-            continue
-
-        # Línea tipo "clave: valor"
-        key, orig_value = line.split(":", 1)
-        key_stripped = key.strip()
-
-        if key_stripped in resp_dict:
-            # Tenemos una propuesta del modelo para esta clave
-            model_line = resp_dict[key_stripped]
-            # Nos quedamos solo con lo que haya tras ":" en la línea propuesta
-            _, model_value = model_line.split(":", 1)
-            new_line = f"{key}: {model_value.strip()}"
-            filtered_lines.append(new_line)
-        else:
-            # El modelo no ha propuesto nada para esta clave → conservamos el original
-            filtered_lines.append(line)
-
-    return "\n".join(filtered_lines)
-
-def clean_template_guidance(template_text: str) -> str:
-    """Elimina directrices entre paréntesis de labels del template"""
-    import re
-    
-    # Patrón: "campo (directriz): valor" → "campo: valor"
-    cleaned = re.sub(r'\s*\([^)]*\)\s*:', ':', template_text)
-    return cleaned.strip()
-
 
 
 def complete_template(patient_folder : str, template_path: str) -> str:

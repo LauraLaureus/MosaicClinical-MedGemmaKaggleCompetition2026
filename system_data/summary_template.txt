@@ -6,21 +6,23 @@ c. Education level: Not specified
 2) Drug Allergies: Not specified  
 
 3) Medical History  
-3.a. Vascular risk factors: Not specified
+a. Vascular risk factors: Not specified
+b. Toxic habits: Not specified  
 
-3.b. Toxic habits: Not specified  
-
-3.c. Other medical conditions (include all syndromes, chronic diagnoses, respiratory conditions, GI disorders, infections, and comorbidities if present): Not specified  
+c. Primary diagnosis & neurological: Not specified
+d. Respiratory, ENT & GI conditions: Not specified
+f. Infections, developmental & other chronic: Not specified
 
 4) Surgical History: Not specified  
 
 5) Current Home Treatment
-a. Medication (with dosage) list: Not specified
-b. Other home treatments: Not specified 
+
+a. Medication list (list ALL drugs and include doses/frequency when mentioned): Not specified
+b. Other home treatments (non-medication: therapies, devices, oxygen, special diet): Not specified
 
 6) Baseline Functional Status  
-6.a. Living situation: Not specified  
+a. Living situation(reason possible values Dependent, Independent or Not specified): Not specified
 
-6.b. Level of independence for basic activities of daily living (look for descriptions of dependence/independence): Not specified  
+b. Level of independence for basic activities of daily living (reason possible values Dependent, Independent or Not specified): Not specified  
 
-6.c. Level of independence for instrumental activities of daily living (look for descriptions of dependence/independence): Not specified
+c. Level of independence for instrumental activities of daily living (reason possible values Dependent, Independent or Not specified): Not specified
