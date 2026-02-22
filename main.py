@@ -25,9 +25,7 @@ with gr.Blocks(title="MedGemma Clinician Assistant") as demo:
         raise ValueError("System's resources not found.")
     
 
-    # --- ZONA SUPERIOR: ENTRADA ---
     with gr.Row():
-        # Columna 1: Agenda
         with gr.Column(scale=1):
             gr.Markdown("### 📅 Agenda")
             
@@ -40,7 +38,6 @@ with gr.Blocks(title="MedGemma Clinician Assistant") as demo:
             )
             gr.Info("Select the patient to generate the summary.")
 
-        # Columna 2: Custom Template
         with gr.Column(scale=2):
             gr.Markdown("### 📝 Custom Template")
 
@@ -58,7 +55,6 @@ with gr.Blocks(title="MedGemma Clinician Assistant") as demo:
 
     gr.Markdown("---")
 
-    # --- ZONA INFERIOR: OUTPUT ---
     with gr.Row():
         with gr.Column():
             gr.Markdown("### 📋 Output: Updated template")
@@ -76,5 +72,6 @@ with gr.Blocks(title="MedGemma Clinician Assistant") as demo:
     )
 
 # Lanzar la app
+
 if __name__ == "__main__":
     demo.launch()
