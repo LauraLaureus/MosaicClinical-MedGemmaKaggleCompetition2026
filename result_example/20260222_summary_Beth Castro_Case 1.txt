@@ -1,0 +1,28 @@
+1) Demographic Data  
+a. Age: 17 years old
+b. Sex: Female
+c. Education level: Not specified
+
+2) Drug Allergies: Not specified
+
+3) Medical History  
+a. Vascular risk factors: Not specified
+b. Toxic habits: Not specified
+
+c. Primary diagnosis & neurological: Dravet syndrome
+d. Respiratory, ENT & GI conditions: laryngeal spasm, intrinsic asthma, recurrent upper airway infections/purulent pharyngitis, bilateral tonsillectomy, eosinophilic esophagitis
+f. Infections, developmental & other chronic: febrile seizures, involuntary movements, psychomotor delay, delayed language onset, cognitive delay (no purposeful speech)
+
+4) Surgical History: Bilateral tonsillectomy
+
+5) Current Home Treatment
+
+a. Medication list: phenobarbital, valproic acid, clonazepam, levetiracetam, topiramate, cannabidiol, omeprazole, montelukast
+b. Other home treatments: Not specified
+
+6) Baseline Functional Status  
+a. Living situation: Not specified
+
+b. Level of independence for basic activities of daily living: Dependent
+
+c. Level of independence for instrumental activities of daily living: Not specified
