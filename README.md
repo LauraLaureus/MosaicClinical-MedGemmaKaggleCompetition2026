@@ -65,7 +65,6 @@ Scale: 5,000 patients/night, on-premises privacy.
 
 # 🚀 Quick Start
 
-bash 
 ```
 pip install -r requirements.txt
 python main.py  # Gradio demo
@@ -76,7 +75,7 @@ Files:
 - main.py - Interactive Gradio demo
 - requirements.txt - Dependencies
 
-🎥 Video Demo
+# 🎥 Video Demo
 
 [See the video introduction on Youtube](https://youtu.be/zyEoa3LcFl4)
 
