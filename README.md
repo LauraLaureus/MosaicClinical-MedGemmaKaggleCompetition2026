@@ -24,57 +24,59 @@ Result: Manual synthesis → burnout + lost eye contact.
 Mosaic Clinical: 30-second synthesis → doctor's focus returns to patient.
 
 # Impact:
-    70% faster pre-consults (100 → 30 min/day)
-    Burnout reduction (eliminates #1 repetitive task)
+
+- 70% faster pre-consults (100 → 30 min/day)
+- Burnout reduction (eliminates #1 repetitive task)
 
 # 🚀 Solution
 
 MedGemma-1.5-4b-it (HAI-DEF) transforms raw docs → granular templates.
 
 # Core Innovations
-    Attention-Safe Chunking (1-2 fields/chunk)
-    Rigid Mask Filtering (rejects hallucinations)
-    Deterministic (seed=314 + temp=0.0)
+- Attention-Safe Chunking (1-2 fields/chunk)
+- Rigid Mask Filtering (rejects hallucinations)
+- Deterministic (seed=314 + temp=0.0)
 
-Raw Docs (.txt/.jpg) 
-  ↓ Chunking (core.py)
-MedGemma-1.5-4b-it (LM Studio)
-  ↓ filter_output()
-Clean Template
+Mosaic clinical works following the next schema:
+
+1. Loads chronologically the patients docs: ( currently .txt/.png) 
+2. Perfomrs Chunking of the summary template.
+3. Extracts information using MedGemma-1.5-4b-it (served by LM Studio)
+4. Filters the output to provide a clean updated summary template.
 
 # 🛠️ Technical Implementation
 Current implementation is a Proof-of-Concept
 
 Model: unsloth/medgemma-1.5-4b-it-GGUF (Q8_K_XL)
-Server: LM Studio (localhost:1234)
-GPU: 8GB VRAM
-Files: core.py + main.py (Gradio)
+
+Server: LM Studio 
+
+GPU: 8GB VRAM (RTX 2070)
+
+Files: core.py (main library) + main.py (Gradio UI)
 
 ## Intended Production Pipeline
 
-Hospital EMR 
-  ↓ Nightly Airflow ETL
-Dockerized Mosaic Library
-  ↓ MedGemma GPU Cluster
-Templates (TXT/JSON)
-  ↓ Encrypted Email/SAML
-Clinician Inbox
+Hospital EMR runs Nightly Airflow ETL with the Mosaic Clinical Library using MedGemma in a GPU Cluster or server.
+Every run is provided with the "summary template", the patient's records and will deliver an email per patient directly to the clinician Inbox
 
 Scale: 5,000 patients/night, on-premises privacy.
 
 
 # 🚀 Quick Start
 
-bash
+bash 
+```
 pip install -r requirements.txt
 python main.py  # Gradio demo
+```
 
 Files:
-    core.py - Extraction pipeline
-    main.py - Interactive Gradio demo
-    requirements.txt - Dependencies
+- core.py - Extraction pipeline
+- main.py - Interactive Gradio demo
+- requirements.txt - Dependencies
 
 🎥 Video Demo
 
+[See the video introduction on Youtube](https://youtu.be/zyEoa3LcFl4)
 
-Mosaic Clinical: From chaos → clinical truth. 
