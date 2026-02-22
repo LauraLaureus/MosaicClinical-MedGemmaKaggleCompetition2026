@@ -292,8 +292,8 @@ def complete_template(patient_folder : str, template_path: str) -> str:
 
 
 
-
-if __name__ == "__main__":
-    complete_template("./patient_data/Beth Castro","./system_data/summary_template.txt")
+# For testing w/o UI
+# if __name__ == "__main__":
+    # complete_template("./patient_data/Beth Castro","./system_data/summary_template.txt")
     # complete_template("./patient_data/Dean Espinosa","./system_data/summary_template.txt")
     # complete_template("./patient_data/Fiona Graham","./system_data/summary_template.txt")
