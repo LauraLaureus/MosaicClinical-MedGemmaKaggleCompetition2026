@@ -1,6 +1,5 @@
 import os
 import requests
-import argparse
 import json
 import re
 import base64
